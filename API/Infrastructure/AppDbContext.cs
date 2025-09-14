@@ -14,7 +14,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         b.Entity<MenuItem>(e =>
         {
             e.Property(x => x.Name).HasMaxLength(120).IsRequired();
-            e.Property(x => x.Price).HasColumnType("decimal(9,2)");
+            e.Property(x => x.Price).HasPrecision(9, 2);
         });
 
         b.Entity<Ticket>(e =>
@@ -28,7 +28,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         b.Entity<TicketLine>(e =>
         {
-            e.Property(x => x.UnitPrice).HasColumnType("decimal(9,2)");
+            e.Property(x => x.UnitPrice).HasPrecision(9, 2);
             e.Property(x => x.Qty).HasDefaultValue(1);
         });
     }

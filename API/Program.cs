@@ -6,14 +6,22 @@ using PosApi.Infrastructure;
 var builder = WebApplication.CreateBuilder(args);
 
 // Db
+var connectionString = builder.Configuration.GetConnectionString("Default") ?? string.Empty;
 builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseSqlite(builder.Configuration.GetConnectionString("Default")));
+{
+    opt.UseNpgsql(connectionString);
+});
 
 // CORS
+var allowedOriginsCsv = builder.Configuration["AllowedOrigins"];
+var allowedOrigins = string.IsNullOrWhiteSpace(allowedOriginsCsv)
+    ? new[] { "http://localhost:3000" }
+    : allowedOriginsCsv.Split(',', System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries);
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
