@@ -15,9 +15,9 @@ namespace PosApi.Migrations
                 name: "Menu",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 120, nullable: false),
-                    Price = table.Column<decimal>(type: "decimal(9,2)", nullable: false)
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: false),
+                    Price = table.Column<decimal>(type: "numeric(9,2)", precision: 9, scale: 2, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -28,9 +28,9 @@ namespace PosApi.Migrations
                 name: "Tickets",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false, defaultValue: "Open"),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Open"),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -41,11 +41,11 @@ namespace PosApi.Migrations
                 name: "TicketLines",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    TicketId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    MenuItemId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Qty = table.Column<int>(type: "INTEGER", nullable: false, defaultValue: 1),
-                    UnitPrice = table.Column<decimal>(type: "decimal(9,2)", nullable: false)
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    TicketId = table.Column<Guid>(type: "uuid", nullable: false),
+                    MenuItemId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Qty = table.Column<int>(type: "integer", nullable: false, defaultValue: 1),
+                    UnitPrice = table.Column<decimal>(type: "numeric(9,2)", precision: 9, scale: 2, nullable: false)
                 },
                 constraints: table =>
                 {
