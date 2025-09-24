@@ -1,0 +1,26 @@
+# Build output
+bin/
+obj/
+
+# Local database files
+pos.db
+pos.db-shm
+pos.db-wal
+
+# User-specific
+*.user
+*.rsuser
+*.suo
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Misc
+**/*.swp
+**/*.swx
+.DS_Store
