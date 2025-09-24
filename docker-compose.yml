@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: pos
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"  # Host port 5433, container port 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build: ./API
+    ports:
+      - "5001:8080"  # Host port 5001, container port 8080
+    environment:
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=pos;Username=postgres;Password=postgres"
+      AllowedOrigins: "http://localhost:3000"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
