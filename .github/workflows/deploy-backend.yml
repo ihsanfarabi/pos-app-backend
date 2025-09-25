@@ -65,5 +65,42 @@ jobs:
     - name: Deploy to App Runner
       id: deploy-apprunner
       run: |
-        aws apprunner start-deployment \
-          --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }}
+        # Check service status before deployment
+        SERVICE_STATUS=$(aws apprunner describe-service \
+          --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }} \
+          --query 'Service.Status' --output text)
+        
+        echo "App Runner service status: $SERVICE_STATUS"
+        
+        if [ "$SERVICE_STATUS" = "RUNNING" ]; then
+          echo "Service is running, starting deployment..."
+          aws apprunner start-deployment \
+            --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }}
+        else
+          echo "Service is not in RUNNING state. Current state: $SERVICE_STATUS"
+          echo "Waiting for service to reach RUNNING state..."
+          
+          # Wait up to 10 minutes for service to be ready
+          for i in {1..20}; do
+            sleep 30
+            SERVICE_STATUS=$(aws apprunner describe-service \
+              --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }} \
+              --query 'Service.Status' --output text)
+            echo "Attempt $i: Service status is $SERVICE_STATUS"
+            
+            if [ "$SERVICE_STATUS" = "RUNNING" ]; then
+              echo "Service is now running, starting deployment..."
+              aws apprunner start-deployment \
+                --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }}
+              break
+            elif [ "$SERVICE_STATUS" = "CREATE_FAILED" ] || [ "$SERVICE_STATUS" = "DELETE_FAILED" ]; then
+              echo "Service is in failed state: $SERVICE_STATUS"
+              exit 1
+            fi
+            
+            if [ $i -eq 20 ]; then
+              echo "Timeout waiting for service to be ready"
+              exit 1
+            fi
+          done
+        fi
