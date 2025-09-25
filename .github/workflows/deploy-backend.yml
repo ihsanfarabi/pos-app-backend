@@ -37,7 +37,25 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        cd pos-app-backend/API
+        # Debug: List current directory contents
+        echo "Current directory:"
+        pwd
+        ls -la
+        
+        # Check if the expected directory exists
+        if [ -d "pos-app-backend/API" ]; then
+          echo "Found pos-app-backend/API directory"
+          cd pos-app-backend/API
+        elif [ -d "API" ]; then
+          echo "Found API directory in root"
+          cd API
+        else
+          echo "Directory structure:"
+          find . -name "Dockerfile" -type f
+          exit 1
+        fi
+        
+        # Build and push images
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
