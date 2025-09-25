@@ -3,7 +3,7 @@ name: Deploy Backend to AWS
 on:
   push:
     branches: [ main ]
-    paths: [ 'pos-app-backend/**' ]
+    paths: [ 'API/**' ]
   workflow_dispatch:
 
 env:
@@ -42,18 +42,9 @@ jobs:
         pwd
         ls -la
         
-        # Check if the expected directory exists
-        if [ -d "pos-app-backend/API" ]; then
-          echo "Found pos-app-backend/API directory"
-          cd pos-app-backend/API
-        elif [ -d "API" ]; then
-          echo "Found API directory in root"
-          cd API
-        else
-          echo "Directory structure:"
-          find . -name "Dockerfile" -type f
-          exit 1
-        fi
+        # Navigate to API directory (since this is a backend-only repo)
+        echo "Found API directory in root"
+        cd API
         
         # Build and push images
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
