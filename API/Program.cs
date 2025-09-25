@@ -144,4 +144,4 @@ app.MapPost("/api/tickets/{id:guid}/pay/cash", async (Guid id, AppDbContext db) 
     return Results.Ok(new { t.Id, t.Status, Total = total });
 });
 
-app.Run();
+app.Run();// Updated Thu Sep 25 16:38:59 WIB 2025
