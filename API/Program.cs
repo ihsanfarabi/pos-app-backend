@@ -41,7 +41,7 @@ using (var scope = app.Services.CreateScope())
     if (!db.Menu.Any())
     {
         db.Menu.AddRange(
-            new MenuItem { Name = "Nasi Goreng", Price = 25000 },
+            new MenuItem { Name = "Nasi Goreng Ati", Price = 25000 },
             new MenuItem { Name = "Mie Goreng",  Price = 22000 },
             new MenuItem { Name = "Teh Manis",   Price = 8000  }
         );
