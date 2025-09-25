@@ -31,27 +31,16 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Build, tag, and push image to Amazon ECR
+    - name: Build and push image to Amazon ECR
       id: build-image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
+      working-directory: API
       run: |
-        # Debug: List current directory contents
-        echo "Current directory:"
-        pwd
-        ls -la
-        
-        # Navigate to API directory (since this is a backend-only repo)
-        echo "Found API directory in root"
-        cd API
-        
-        # Build and push images
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:${IMAGE_TAG} -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:${IMAGE_TAG}
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
     - name: Deploy to App Runner (manual trigger)
       if: ${{ success() }}
@@ -62,51 +51,11 @@ jobs:
           echo "APP_RUNNER_SERVICE_ARN secret is not set."
           exit 1
         fi
-
-        attempt_deployment() {
-          local max_attempts=5
-          local attempt=1
-          while [ $attempt -le $max_attempts ]; do
-            echo "Deployment attempt $attempt of $max_attempts"
-            SERVICE_STATUS=$(aws apprunner describe-service \
-              --service-arn "$SERVICE_ARN" \
-              --query 'Service.Status' --output text)
-            echo "Service status: $SERVICE_STATUS"
-            if [ "$SERVICE_STATUS" = "RUNNING" ]; then
-              echo "Service is running, attempting deployment..."
-              if aws apprunner start-deployment --service-arn "$SERVICE_ARN"; then
-                echo "Deployment started successfully!"
-                return 0
-              else
-                echo "Deployment failed, possibly due to a transient state. Retrying..."
-                sleep 10
-              fi
-            elif [ "$SERVICE_STATUS" = "CREATE_FAILED" ] || [ "$SERVICE_STATUS" = "DELETE_FAILED" ]; then
-              echo "Service is in failed state: $SERVICE_STATUS"
-              return 1
-            else
-              echo "Service not ready (status: $SERVICE_STATUS), waiting 30s..."
-              sleep 30
-            fi
-            attempt=$((attempt + 1))
-          done
-          echo "Failed to start deployment after $max_attempts attempts"
-          return 1
-        }
-
-        echo "Ensuring service is ready before triggering deployment..."
-        for i in {1..24}; do
-          SERVICE_STATUS=$(aws apprunner describe-service \
-            --service-arn "$SERVICE_ARN" \
-            --query 'Service.Status' --output text)
-          echo "Check $i: Service status is $SERVICE_STATUS"
-          if [ "$SERVICE_STATUS" = "RUNNING" ]; then
-            attempt_deployment && exit 0
-          elif [ "$SERVICE_STATUS" = "CREATE_FAILED" ] || [ "$SERVICE_STATUS" = "DELETE_FAILED" ]; then
-            echo "Service is in failed state: $SERVICE_STATUS"
-            exit 1
+        for attempt in {1..8}; do
+          if aws apprunner start-deployment --service-arn "$SERVICE_ARN"; then
+            exit 0
           fi
-          sleep 30
+          sleep 15
         done
-        echo "Timeout waiting for service to be ready for deployment"
+        echo "Failed to start App Runner deployment after multiple attempts"
         exit 1
