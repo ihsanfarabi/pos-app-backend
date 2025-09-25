@@ -56,42 +56,72 @@ jobs:
     - name: Deploy to App Runner
       id: deploy-apprunner
       run: |
-        # Check service status before deployment
-        SERVICE_STATUS=$(aws apprunner describe-service \
-          --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }} \
-          --query 'Service.Status' --output text)
-        
-        echo "App Runner service status: $SERVICE_STATUS"
-        
-        if [ "$SERVICE_STATUS" = "RUNNING" ]; then
-          echo "Service is running, starting deployment..."
-          aws apprunner start-deployment \
-            --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }}
-        else
-          echo "Service is not in RUNNING state. Current state: $SERVICE_STATUS"
-          echo "Waiting for service to reach RUNNING state..."
+        # Function to attempt deployment with retries
+        attempt_deployment() {
+          local max_attempts=5
+          local attempt=1
           
-          # Wait up to 10 minutes for service to be ready
-          for i in {1..20}; do
-            sleep 30
+          while [ $attempt -le $max_attempts ]; do
+            echo "Deployment attempt $attempt of $max_attempts"
+            
+            # Check service status immediately before deployment attempt
             SERVICE_STATUS=$(aws apprunner describe-service \
               --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }} \
               --query 'Service.Status' --output text)
-            echo "Attempt $i: Service status is $SERVICE_STATUS"
+            
+            echo "Service status: $SERVICE_STATUS"
             
             if [ "$SERVICE_STATUS" = "RUNNING" ]; then
-              echo "Service is now running, starting deployment..."
-              aws apprunner start-deployment \
-                --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }}
-              break
+              echo "Service is running, attempting deployment..."
+              
+              # Try to start deployment and capture the result
+              if aws apprunner start-deployment --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }}; then
+                echo "Deployment started successfully!"
+                return 0
+              else
+                echo "Deployment failed, checking if it's a race condition..."
+                sleep 10
+              fi
             elif [ "$SERVICE_STATUS" = "CREATE_FAILED" ] || [ "$SERVICE_STATUS" = "DELETE_FAILED" ]; then
               echo "Service is in failed state: $SERVICE_STATUS"
               exit 1
+            else
+              echo "Service not ready (status: $SERVICE_STATUS), waiting..."
+              sleep 30
             fi
             
-            if [ $i -eq 20 ]; then
-              echo "Timeout waiting for service to be ready"
-              exit 1
-            fi
+            attempt=$((attempt + 1))
           done
-        fi
+          
+          echo "Failed to start deployment after $max_attempts attempts"
+          return 1
+        }
+        
+        # Wait for service to be ready, then attempt deployment
+        echo "Waiting for App Runner service to be ready for deployment..."
+        
+        for i in {1..24}; do  # Wait up to 12 minutes
+          SERVICE_STATUS=$(aws apprunner describe-service \
+            --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }} \
+            --query 'Service.Status' --output text)
+          
+          echo "Check $i: Service status is $SERVICE_STATUS"
+          
+          if [ "$SERVICE_STATUS" = "RUNNING" ]; then
+            echo "Service is ready, attempting deployment..."
+            if attempt_deployment; then
+              echo "Deployment initiated successfully!"
+              exit 0
+            fi
+          elif [ "$SERVICE_STATUS" = "CREATE_FAILED" ] || [ "$SERVICE_STATUS" = "DELETE_FAILED" ]; then
+            echo "Service is in failed state: $SERVICE_STATUS"
+            exit 1
+          fi
+          
+          if [ $i -eq 24 ]; then
+            echo "Timeout waiting for service to be ready for deployment"
+            exit 1
+          fi
+          
+          sleep 30
+        done
