@@ -41,21 +41,3 @@ jobs:
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:${IMAGE_TAG} -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:${IMAGE_TAG}
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
-    - name: Deploy to App Runner (manual trigger)
-      if: ${{ success() }}
-      env:
-        SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
-      run: |
-        if [ -z "$SERVICE_ARN" ]; then
-          echo "APP_RUNNER_SERVICE_ARN secret is not set."
-          exit 1
-        fi
-        for attempt in {1..8}; do
-          if aws apprunner start-deployment --service-arn "$SERVICE_ARN"; then
-            exit 0
-          fi
-          sleep 15
-        done
-        echo "Failed to start App Runner deployment after multiple attempts"
-        exit 1
