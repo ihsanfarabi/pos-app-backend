@@ -58,7 +58,7 @@ app.MapGet("/", () => Results.Redirect("/swagger"));
 app.UseCors();
 
 // MENU
-app.MapGet("/api/maimenu", async (AppDbContext db) =>
+app.MapGet("/api/menu", async (AppDbContext db) =>
     await db.Menu.OrderBy(m => m.Name)
         .Select(m => new { m.Id, m.Name, m.Price })
         .ToListAsync());
