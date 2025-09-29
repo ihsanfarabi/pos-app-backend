@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using System.Text;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Microsoft.AspNetCore.HttpOverrides;
 using PosApi.Contracts;
 using PosApi.Domain;
 using PosApi.Infrastructure;
@@ -136,6 +137,14 @@ using (var scope = app.Services.CreateScope())
         await db.SaveChangesAsync();
     }
 }
+
+// Honor proxy headers (HTTPS offload)
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost,
+    KnownNetworks = { },
+    KnownProxies = { }
+});
 
 app.UseSwagger();
 app.UseSwaggerUI();
@@ -353,8 +362,8 @@ app.MapPost("/api/auth/login", async (LoginDto dto, AppDbContext db, HttpContext
     http.Response.Cookies.Append("refresh_token", rJwt, new CookieOptions
     {
         HttpOnly = true,
-        Secure = false, // set true behind HTTPS/proxy in prod
-        SameSite = SameSiteMode.Lax,
+        Secure = !app.Environment.IsDevelopment(),
+        SameSite = app.Environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.None,
         Expires = DateTimeOffset.UtcNow.AddDays(rTtlDays),
         Path = "/"
     });
@@ -445,8 +454,8 @@ app.MapPost("/api/auth/refresh", async (HttpContext http, AppDbContext db) =>
         http.Response.Cookies.Append("refresh_token", rJwtNew, new CookieOptions
         {
             HttpOnly = true,
-            Secure = false,
-            SameSite = SameSiteMode.Lax,
+            Secure = !app.Environment.IsDevelopment(),
+            SameSite = app.Environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.None,
             Expires = DateTimeOffset.UtcNow.AddDays(rTtlDays),
             Path = "/"
         });
@@ -465,8 +474,8 @@ app.MapPost("/api/auth/logout", (HttpContext http) =>
     http.Response.Cookies.Append("refresh_token", "", new CookieOptions
     {
         HttpOnly = true,
-        Secure = false,
-        SameSite = SameSiteMode.Lax,
+        Secure = !app.Environment.IsDevelopment(),
+        SameSite = app.Environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.None,
         Expires = DateTimeOffset.UtcNow.AddDays(-1),
         Path = "/"
     });
