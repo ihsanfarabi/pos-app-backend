@@ -25,6 +25,10 @@ services:
       Jwt__Audience: "pos-app"
       Jwt__SigningKey: "dev-only-change-in-prod-please-rotate"
       Jwt__AccessTokenTTLMinutes: 60
+      RefreshJwt__Issuer: "pos-app"
+      RefreshJwt__Audience: "pos-app"
+      RefreshJwt__SigningKey: "dev-only-change-in-prod-please-rotate-refresh"
+      RefreshJwt__TTLDays: 7
     depends_on:
       - postgres
 

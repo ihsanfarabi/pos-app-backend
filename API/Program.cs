@@ -30,7 +30,8 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
         policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod());
+              .AllowAnyMethod()
+              .AllowCredentials());
 });
 
 // Auth
@@ -290,7 +291,7 @@ app.MapPost("/api/auth/register", async (RegisterDto dto, AppDbContext db, IPass
     return Results.Created($"/api/users/{user.Id}", new { user.Id, user.Email, user.Role });
 });
 
-app.MapPost("/api/auth/login", async (LoginDto dto, AppDbContext db) =>
+app.MapPost("/api/auth/login", async (LoginDto dto, AppDbContext db, HttpContext http) =>
 {
     var email = (dto.Email ?? string.Empty).Trim().ToLowerInvariant();
     if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(dto.Password))
@@ -329,6 +330,35 @@ app.MapPost("/api/auth/login", async (LoginDto dto, AppDbContext db) =>
     );
 
     var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+
+    // Issue refresh token cookie (v1.1)
+    var refreshSection = app.Configuration.GetSection("RefreshJwt");
+    var rIssuer = refreshSection["Issuer"] ?? issuer;
+    var rAudience = refreshSection["Audience"] ?? audience;
+    var rSigningKey = refreshSection["SigningKey"] ?? string.Empty;
+    var rTtlDays = int.TryParse(refreshSection["TTLDays"], out var rtd) ? rtd : 7;
+    if (string.IsNullOrWhiteSpace(rSigningKey))
+        throw new InvalidOperationException("RefreshJwt SigningKey is not configured. Set RefreshJwt__SigningKey env var.");
+    var rKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(rSigningKey));
+    var rCreds = new SigningCredentials(rKey, SecurityAlgorithms.HmacSha256);
+    var rToken = new JwtSecurityToken(
+        issuer: rIssuer,
+        audience: rAudience,
+        claims: new[] { new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()), new Claim("typ", "refresh") },
+        notBefore: now,
+        expires: now.AddDays(rTtlDays),
+        signingCredentials: rCreds
+    );
+    var rJwt = new JwtSecurityTokenHandler().WriteToken(rToken);
+    http.Response.Cookies.Append("refresh_token", rJwt, new CookieOptions
+    {
+        HttpOnly = true,
+        Secure = false, // set true behind HTTPS/proxy in prod
+        SameSite = SameSiteMode.Lax,
+        Expires = DateTimeOffset.UtcNow.AddDays(rTtlDays),
+        Path = "/"
+    });
+
     return Results.Ok(new { access_token = jwt, token_type = "Bearer", expires_in = ttlMinutes * 60 });
 });
 
@@ -340,5 +370,107 @@ app.MapGet("/api/auth/me", (ClaimsPrincipal user) =>
     var role = user.FindFirstValue(ClaimTypes.Role) ?? "user";
     return Results.Ok(new { id = sub, email, role });
 }).RequireAuthorization();
+
+// Refresh access token using refresh cookie (v1.1)
+app.MapPost("/api/auth/refresh", async (HttpContext http, AppDbContext db) =>
+{
+    if (!http.Request.Cookies.TryGetValue("refresh_token", out var refreshJwt) || string.IsNullOrWhiteSpace(refreshJwt))
+        return Results.Unauthorized();
+
+    var refreshSection = app.Configuration.GetSection("RefreshJwt");
+    var rIssuer = refreshSection["Issuer"] ?? string.Empty;
+    var rAudience = refreshSection["Audience"] ?? string.Empty;
+    var rSigningKey = refreshSection["SigningKey"] ?? string.Empty;
+    var rTtlDays = int.TryParse(refreshSection["TTLDays"], out var rtd) ? rtd : 7;
+    if (string.IsNullOrWhiteSpace(rSigningKey)) return Results.Unauthorized();
+    var tokenHandler = new JwtSecurityTokenHandler();
+    try
+    {
+        var principal = tokenHandler.ValidateToken(refreshJwt, new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = rIssuer,
+            ValidateAudience = true,
+            ValidAudience = rAudience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(rSigningKey)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(1)
+        }, out _);
+
+        var sub = principal.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(sub)) return Results.Unauthorized();
+        if (!Guid.TryParse(sub, out var userId)) return Results.Unauthorized();
+
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user is null) return Results.Unauthorized();
+
+        // Issue new access token
+        var jwtSection2 = app.Configuration.GetSection("Jwt");
+        var issuer = jwtSection2["Issuer"] ?? string.Empty;
+        var audience = jwtSection2["Audience"] ?? string.Empty;
+        var signingKey = jwtSection2["SigningKey"] ?? string.Empty;
+        var ttlMinutes = int.TryParse(jwtSection2["AccessTokenTTLMinutes"], out var ttl) ? ttl : 60;
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var now = DateTime.UtcNow;
+        var claims = new List<Claim>
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new Claim(ClaimTypes.Role, user.Role)
+        };
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
+            claims: claims,
+            notBefore: now,
+            expires: now.AddMinutes(ttlMinutes),
+            signingCredentials: creds
+        );
+        var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+
+        // Rotate refresh token
+        var rKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(rSigningKey));
+        var rCreds = new SigningCredentials(rKey, SecurityAlgorithms.HmacSha256);
+        var rToken = new JwtSecurityToken(
+            issuer: rIssuer,
+            audience: rAudience,
+            claims: new[] { new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()), new Claim("typ", "refresh") },
+            notBefore: now,
+            expires: now.AddDays(rTtlDays),
+            signingCredentials: rCreds
+        );
+        var rJwtNew = new JwtSecurityTokenHandler().WriteToken(rToken);
+        http.Response.Cookies.Append("refresh_token", rJwtNew, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = false,
+            SameSite = SameSiteMode.Lax,
+            Expires = DateTimeOffset.UtcNow.AddDays(rTtlDays),
+            Path = "/"
+        });
+
+        return Results.Ok(new { access_token = jwt, token_type = "Bearer", expires_in = ttlMinutes * 60 });
+    }
+    catch
+    {
+        return Results.Unauthorized();
+    }
+});
+
+// Logout: clear refresh cookie
+app.MapPost("/api/auth/logout", (HttpContext http) =>
+{
+    http.Response.Cookies.Append("refresh_token", "", new CookieOptions
+    {
+        HttpOnly = true,
+        Secure = false,
+        SameSite = SameSiteMode.Lax,
+        Expires = DateTimeOffset.UtcNow.AddDays(-1),
+        Path = "/"
+    });
+    return Results.NoContent();
+});
 
 app.Run();// Updated Thu Sep 25 16:38:59 WIB 2025
