@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MenuItem> Menu => Set<MenuItem>();
     public DbSet<Ticket> Tickets => Set<Ticket>();
     public DbSet<TicketLine> TicketLines => Set<TicketLine>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -30,6 +31,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.Property(x => x.UnitPrice).HasPrecision(9, 2);
             e.Property(x => x.Qty).HasDefaultValue(1);
+        });
+
+        b.Entity<User>(e =>
+        {
+            e.Property(x => x.Email).HasMaxLength(254).IsRequired();
+            e.HasIndex(x => x.Email).IsUnique();
+            e.Property(x => x.PasswordHash).IsRequired();
+            e.Property(x => x.Role).HasMaxLength(20).HasDefaultValue("user");
         });
     }
 }
