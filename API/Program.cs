@@ -38,6 +38,10 @@ var jwtSection = builder.Configuration.GetSection("Jwt");
 var jwtIssuer = jwtSection["Issuer"] ?? string.Empty;
 var jwtAudience = jwtSection["Audience"] ?? string.Empty;
 var jwtSigningKey = jwtSection["SigningKey"] ?? string.Empty;
+if (string.IsNullOrWhiteSpace(jwtSigningKey))
+{
+    throw new InvalidOperationException("JWT SigningKey is not configured. Set Jwt__SigningKey env var.");
+}
 
 if (!string.IsNullOrWhiteSpace(jwtSigningKey))
 {
@@ -162,6 +166,28 @@ app.MapPost("/api/menu", async (AppDbContext db, CreateMenuItemDto dto) =>
     return Results.Created($"/api/menu/{item.Id}", new { item.Id });
 }).RequireAuthorization("Admin");
 
+app.MapPut("/api/menu/{id:guid}", async (Guid id, UpdateMenuItemDto dto, AppDbContext db) =>
+{
+    var item = await db.Menu.FindAsync(id);
+    if (item is null) return Results.NotFound();
+    if (string.IsNullOrWhiteSpace(dto.Name) || dto.Price <= 0)
+        return Results.BadRequest(new { message = "Invalid name/price" });
+
+    item.Name = dto.Name.Trim();
+    item.Price = dto.Price;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { item.Id });
+}).RequireAuthorization("Admin");
+
+app.MapDelete("/api/menu/{id:guid}", async (Guid id, AppDbContext db) =>
+{
+    var item = await db.Menu.FindAsync(id);
+    if (item is null) return Results.NotFound();
+    db.Menu.Remove(item);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+}).RequireAuthorization("Admin");
+
 // TICKETS
 app.MapPost("/api/tickets", async (AppDbContext db) =>
 {
@@ -205,13 +231,21 @@ app.MapPost("/api/tickets/{id:guid}/lines", async (Guid id, AddLineDto dto, AppD
     if (item is null || dto.Qty < 1)
         return Results.BadRequest(new { message = "Invalid item/qty" });
 
-    db.TicketLines.Add(new TicketLine
+    var existing = await db.TicketLines.FirstOrDefaultAsync(l => l.TicketId == id && l.MenuItemId == item.Id && l.UnitPrice == item.Price);
+    if (existing is not null)
     {
-        TicketId = id,
-        MenuItemId = item.Id,
-        Qty = dto.Qty,
-        UnitPrice = item.Price
-    });
+        existing.Qty += dto.Qty;
+    }
+    else
+    {
+        db.TicketLines.Add(new TicketLine
+        {
+            TicketId = id,
+            MenuItemId = item.Id,
+            Qty = dto.Qty,
+            UnitPrice = item.Price
+        });
+    }
 
     await db.SaveChangesAsync();
     return Results.Created($"/api/tickets/{id}", new { ok = true });
@@ -238,6 +272,12 @@ app.MapPost("/api/auth/register", async (RegisterDto dto, AppDbContext db, IPass
     if (string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
         return Results.BadRequest(new { message = "Email and password required" });
 
+    if (!dto.Email.Contains('@'))
+        return Results.BadRequest(new { message = "Email is invalid" });
+
+    if (dto.Password.Length < 8)
+        return Results.BadRequest(new { message = "Password must be at least 8 characters" });
+
     var email = dto.Email.Trim().ToLowerInvariant();
     var exists = await db.Users.AnyAsync(u => u.Email == email);
     if (exists) return Results.BadRequest(new { message = "Email already registered" });
@@ -253,6 +293,8 @@ app.MapPost("/api/auth/register", async (RegisterDto dto, AppDbContext db, IPass
 app.MapPost("/api/auth/login", async (LoginDto dto, AppDbContext db) =>
 {
     var email = (dto.Email ?? string.Empty).Trim().ToLowerInvariant();
+    if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(dto.Password))
+        return Results.BadRequest(new { message = "Email and password required" });
     var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
     if (user is null) return Results.Unauthorized();
 
@@ -294,7 +336,7 @@ app.MapGet("/api/auth/me", (ClaimsPrincipal user) =>
 {
     if (user?.Identity is null || !user.Identity.IsAuthenticated) return Results.Unauthorized();
     var sub = user.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
-    var email = user.FindFirstValue(JwtRegisteredClaimNames.Email);
+    var email = user.FindFirstValue(JwtRegisteredClaimNames.Email) ?? user.FindFirstValue(ClaimTypes.Email);
     var role = user.FindFirstValue(ClaimTypes.Role) ?? "user";
     return Results.Ok(new { id = sub, email, role });
 }).RequireAuthorization();

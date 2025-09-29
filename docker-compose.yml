@@ -21,6 +21,10 @@ services:
       AllowedOrigins: "http://localhost:3000"
       Admin__Email: "admin@example.com"
       Admin__Password: "ChangeMe123!"
+      Jwt__Issuer: "pos-app"
+      Jwt__Audience: "pos-app"
+      Jwt__SigningKey: "dev-only-change-in-prod-please-rotate"
+      Jwt__AccessTokenTTLMinutes: 60
     depends_on:
       - postgres
 
