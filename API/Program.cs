@@ -2,7 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.Identity;
 using System.Text;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using PosApi.Contracts;
 using PosApi.Domain;
 using PosApi.Infrastructure;
@@ -56,8 +59,14 @@ if (!string.IsNullOrWhiteSpace(jwtSigningKey))
             };
         });
 
-    builder.Services.AddAuthorization();
+    builder.Services.AddAuthorization(options =>
+    {
+        options.AddPolicy("Admin", policy => policy.RequireRole("admin"));
+    });
 }
+
+// Password hasher
+builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -72,13 +81,23 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Enter 'Bearer {token}'"
+        Description = "Paste JWT only (no 'Bearer ' prefix)"
     };
 
     c.AddSecurityDefinition("Bearer", securityScheme);
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
-        { securityScheme, Array.Empty<string>() }
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
     });
 });
 
@@ -88,6 +107,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
     db.Database.Migrate();
 
     if (!db.Menu.Any())
@@ -98,6 +118,17 @@ using (var scope = app.Services.CreateScope())
             new MenuItem { Name = "Teh Manis",   Price = 8000  }
         );
         db.SaveChanges();
+    }
+
+    // Seed admin user if configured
+    var adminEmail = builder.Configuration["Admin:Email"] ?? "admin@example.com";
+    var adminPassword = builder.Configuration["Admin:Password"] ?? "ChangeMe123!";
+    if (!await db.Users.AnyAsync(u => u.Email == adminEmail.ToLower()))
+    {
+        var admin = new User { Email = adminEmail.ToLower(), Role = "admin" };
+        admin.PasswordHash = hasher.HashPassword(admin, adminPassword);
+        db.Users.Add(admin);
+        await db.SaveChangesAsync();
     }
 }
 
@@ -117,7 +148,8 @@ app.UseAuthorization();
 app.MapGet("/api/menu", async (AppDbContext db) =>
     await db.Menu.OrderBy(m => m.Name)
         .Select(m => new { m.Id, m.Name, m.Price })
-        .ToListAsync());
+        .ToListAsync())
+    .RequireAuthorization();
 
 app.MapPost("/api/menu", async (AppDbContext db, CreateMenuItemDto dto) =>
 {
@@ -128,7 +160,7 @@ app.MapPost("/api/menu", async (AppDbContext db, CreateMenuItemDto dto) =>
     db.Menu.Add(item);
     await db.SaveChangesAsync();
     return Results.Created($"/api/menu/{item.Id}", new { item.Id });
-});
+}).RequireAuthorization("Admin");
 
 // TICKETS
 app.MapPost("/api/tickets", async (AppDbContext db) =>
@@ -137,7 +169,7 @@ app.MapPost("/api/tickets", async (AppDbContext db) =>
     db.Tickets.Add(t);
     await db.SaveChangesAsync();
     return Results.Created($"/api/tickets/{t.Id}", new { t.Id });
-});
+}).RequireAuthorization();
 
 app.MapGet("/api/tickets/{id:guid}", async (Guid id, AppDbContext db) =>
 {
@@ -161,7 +193,7 @@ app.MapGet("/api/tickets/{id:guid}", async (Guid id, AppDbContext db) =>
 
     var total = lines.Sum(x => x.LineTotal);
     return Results.Ok(new { t.Id, t.Status, t.CreatedAt, Lines = lines, Total = total });
-});
+}).RequireAuthorization();
 
 app.MapPost("/api/tickets/{id:guid}/lines", async (Guid id, AddLineDto dto, AppDbContext db) =>
 {
@@ -183,7 +215,7 @@ app.MapPost("/api/tickets/{id:guid}/lines", async (Guid id, AddLineDto dto, AppD
 
     await db.SaveChangesAsync();
     return Results.Created($"/api/tickets/{id}", new { ok = true });
-});
+}).RequireAuthorization();
 
 app.MapPost("/api/tickets/{id:guid}/pay/cash", async (Guid id, AppDbContext db) =>
 {
@@ -198,6 +230,73 @@ app.MapPost("/api/tickets/{id:guid}/pay/cash", async (Guid id, AppDbContext db) 
         .SumAsync(l => l.Qty * l.UnitPrice);
 
     return Results.Ok(new { t.Id, t.Status, Total = total });
+}).RequireAuthorization();
+
+// AUTH
+app.MapPost("/api/auth/register", async (RegisterDto dto, AppDbContext db, IPasswordHasher<User> hasher) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
+        return Results.BadRequest(new { message = "Email and password required" });
+
+    var email = dto.Email.Trim().ToLowerInvariant();
+    var exists = await db.Users.AnyAsync(u => u.Email == email);
+    if (exists) return Results.BadRequest(new { message = "Email already registered" });
+
+    var user = new User { Email = email, Role = string.IsNullOrWhiteSpace(dto.Role) ? "user" : dto.Role!.Trim() };
+    user.PasswordHash = hasher.HashPassword(user, dto.Password);
+
+    db.Users.Add(user);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/users/{user.Id}", new { user.Id, user.Email, user.Role });
 });
+
+app.MapPost("/api/auth/login", async (LoginDto dto, AppDbContext db) =>
+{
+    var email = (dto.Email ?? string.Empty).Trim().ToLowerInvariant();
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
+    if (user is null) return Results.Unauthorized();
+
+    using var scope = app.Services.CreateScope();
+    var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
+    var result = hasher.VerifyHashedPassword(user, user.PasswordHash, dto.Password ?? string.Empty);
+    if (result == PasswordVerificationResult.Failed) return Results.Unauthorized();
+
+    var jwtSection = app.Configuration.GetSection("Jwt");
+    var issuer = jwtSection["Issuer"] ?? string.Empty;
+    var audience = jwtSection["Audience"] ?? string.Empty;
+    var signingKey = jwtSection["SigningKey"] ?? string.Empty;
+    var ttlMinutes = int.TryParse(jwtSection["AccessTokenTTLMinutes"], out var ttl) ? ttl : 60;
+
+    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey));
+    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+    var now = DateTime.UtcNow;
+    var claims = new List<Claim>
+    {
+        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+        new Claim(JwtRegisteredClaimNames.Email, user.Email),
+        new Claim(ClaimTypes.Role, user.Role)
+    };
+
+    var token = new JwtSecurityToken(
+        issuer: issuer,
+        audience: audience,
+        claims: claims,
+        notBefore: now,
+        expires: now.AddMinutes(ttlMinutes),
+        signingCredentials: creds
+    );
+
+    var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+    return Results.Ok(new { access_token = jwt, token_type = "Bearer", expires_in = ttlMinutes * 60 });
+});
+
+app.MapGet("/api/auth/me", (ClaimsPrincipal user) =>
+{
+    if (user?.Identity is null || !user.Identity.IsAuthenticated) return Results.Unauthorized();
+    var sub = user.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
+    var email = user.FindFirstValue(JwtRegisteredClaimNames.Email);
+    var role = user.FindFirstValue(ClaimTypes.Role) ?? "user";
+    return Results.Ok(new { id = sub, email, role });
+}).RequireAuthorization();
 
 app.Run();// Updated Thu Sep 25 16:38:59 WIB 2025

@@ -19,6 +19,8 @@ services:
     environment:
       ConnectionStrings__Default: "Host=postgres;Port=5432;Database=postgres;Username=postgres;Password=postgres"
       AllowedOrigins: "http://localhost:3000"
+      Admin__Email: "admin@example.com"
+      Admin__Password: "ChangeMe123!"
     depends_on:
       - postgres
 
