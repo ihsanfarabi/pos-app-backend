@@ -1,4 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using System.Text;
 using PosApi.Contracts;
 using PosApi.Domain;
 using PosApi.Infrastructure;
@@ -26,9 +30,57 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod());
 });
 
+// Auth
+var jwtSection = builder.Configuration.GetSection("Jwt");
+var jwtIssuer = jwtSection["Issuer"] ?? string.Empty;
+var jwtAudience = jwtSection["Audience"] ?? string.Empty;
+var jwtSigningKey = jwtSection["SigningKey"] ?? string.Empty;
+
+if (!string.IsNullOrWhiteSpace(jwtSigningKey))
+{
+    var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKey));
+
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = jwtIssuer,
+                ValidateAudience = true,
+                ValidAudience = jwtAudience,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = signingKey,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromMinutes(1)
+            };
+        });
+
+    builder.Services.AddAuthorization();
+}
+
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "POS API", Version = "v1" });
+
+    var securityScheme = new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter 'Bearer {token}'"
+    };
+
+    c.AddSecurityDefinition("Bearer", securityScheme);
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        { securityScheme, Array.Empty<string>() }
+    });
+});
 
 var app = builder.Build();
 
@@ -56,6 +108,10 @@ app.MapGet("/", () => Results.Redirect("/swagger"));
 
 // Enable CORS for frontend dev server
 app.UseCors();
+
+// AuthZ
+app.UseAuthentication();
+app.UseAuthorization();
 
 // MENU
 app.MapGet("/api/menu", async (AppDbContext db) =>
