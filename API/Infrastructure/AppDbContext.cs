@@ -16,6 +16,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.Property(x => x.Name).HasMaxLength(120).IsRequired();
             e.Property(x => x.Price).HasPrecision(9, 2);
+            e.HasIndex(x => x.Name);
         });
 
         b.Entity<Ticket>(e =>
@@ -25,6 +26,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .WithOne()
              .HasForeignKey(l => l.TicketId)
              .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.CreatedAt);
         });
 
         b.Entity<TicketLine>(e =>

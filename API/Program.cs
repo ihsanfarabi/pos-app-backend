@@ -159,11 +159,42 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // MENU
-app.MapGet("/api/menu", async (AppDbContext db) =>
-    await db.Menu.OrderBy(m => m.Name)
+app.MapGet("/api/menu", async (HttpContext http, AppDbContext db) =>
+{
+    // Query params
+    var q = http.Request.Query["q"].ToString();
+    var pageStr = http.Request.Query["page"].ToString();
+    var pageSizeStr = http.Request.Query["pageSize"].ToString();
+
+    var baseQuery = db.Menu.AsNoTracking().AsQueryable();
+    if (!string.IsNullOrWhiteSpace(q))
+    {
+        var term = q.Trim().ToLower();
+        baseQuery = baseQuery.Where(m => EF.Functions.Like(m.Name.ToLower(), $"%{term}%"));
+    }
+
+    baseQuery = baseQuery.OrderBy(m => m.Name);
+
+    // If no pagination params, keep legacy behavior (list only)
+    if (string.IsNullOrWhiteSpace(pageStr) && string.IsNullOrWhiteSpace(pageSizeStr))
+    {
+        var list = await baseQuery.Select(m => new { m.Id, m.Name, m.Price }).ToListAsync();
+        return Results.Ok(list);
+    }
+
+    int page = int.TryParse(pageStr, out var p) && p > 0 ? p : 1;
+    int pageSize = int.TryParse(pageSizeStr, out var ps) && ps > 0 ? ps : 20;
+    pageSize = Math.Min(pageSize, 100);
+
+    var total = await baseQuery.CountAsync();
+    var items = await baseQuery
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
         .Select(m => new { m.Id, m.Name, m.Price })
-        .ToListAsync())
-    .RequireAuthorization();
+        .ToListAsync();
+
+    return Results.Ok(new { items, page, pageSize, total });
+}).RequireAuthorization();
 
 app.MapPost("/api/menu", async (AppDbContext db, CreateMenuItemDto dto) =>
 {
@@ -229,6 +260,26 @@ app.MapGet("/api/tickets/{id:guid}", async (Guid id, AppDbContext db) =>
 
     var total = lines.Sum(x => x.LineTotal);
     return Results.Ok(new { t.Id, t.Status, t.CreatedAt, Lines = lines, Total = total });
+}).RequireAuthorization();
+
+// Tickets list (paged), sorted by CreatedAt DESC
+app.MapGet("/api/tickets", async (HttpContext http, AppDbContext db) =>
+{
+    var pageStr = http.Request.Query["page"].ToString();
+    var pageSizeStr = http.Request.Query["pageSize"].ToString();
+    int page = int.TryParse(pageStr, out var p) && p > 0 ? p : 1;
+    int pageSize = int.TryParse(pageSizeStr, out var ps) && ps > 0 ? ps : 20;
+    pageSize = Math.Min(pageSize, 100);
+
+    var baseQuery = db.Tickets.AsNoTracking().OrderByDescending(t => t.CreatedAt);
+    var total = await baseQuery.CountAsync();
+    var items = await baseQuery
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
+        .Select(t => new { t.Id, t.Status, t.CreatedAt })
+        .ToListAsync();
+
+    return Results.Ok(new { items, page, pageSize, total });
 }).RequireAuthorization();
 
 app.MapPost("/api/tickets/{id:guid}/lines", async (Guid id, AddLineDto dto, AppDbContext db) =>
