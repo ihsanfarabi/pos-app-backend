@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using System.Text;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -173,7 +174,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // MENU
-app.MapGet("/api/menu", async (MenuQueryDto query, AppDbContext db) =>
+app.MapGet("/api/menu", async ([AsParameters] MenuQueryDto query, AppDbContext db) =>
 {
     var baseQuery = db.Menu.AsNoTracking().AsQueryable();
 
@@ -274,7 +275,7 @@ app.MapGet("/api/tickets/{id:guid}", async (Guid id, AppDbContext db) =>
 }).RequireAuthorization();
 
 // Tickets list (paged), sorted by CreatedAt DESC
-app.MapGet("/api/tickets", async (TicketListQueryDto query, AppDbContext db) =>
+app.MapGet("/api/tickets", async ([AsParameters] TicketListQueryDto query, AppDbContext db) =>
 {
     var page = query.Page ?? 1;
     var pageSize = query.PageSize ?? 20;

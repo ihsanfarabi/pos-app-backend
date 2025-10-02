@@ -15,14 +15,14 @@ public static class ValidationExtensions
     {
         return builder.AddEndpointFilterFactory((context, next) =>
         {
-            var validator = context.ApplicationServices.GetService<IValidator<TRequest>>();
-            if (validator is null)
-            {
-                return next;
-            }
-
             return async invocationContext =>
             {
+                var validator = invocationContext.HttpContext.RequestServices.GetService<IValidator<TRequest>>();
+                if (validator is null)
+                {
+                    return await next(invocationContext);
+                }
+
                 var model = invocationContext.Arguments.OfType<TRequest>().FirstOrDefault();
                 if (model is null)
                 {
