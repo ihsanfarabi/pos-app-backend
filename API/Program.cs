@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -10,6 +11,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using PosApi.Contracts;
 using PosApi.Domain;
 using PosApi.Infrastructure;
+using PosApi.Validation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +21,9 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 {
     opt.UseNpgsql(connectionString);
 });
+
+// Validation
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 // CORS
 var allowedOriginsCsv = builder.Configuration["AllowedOrigins"];
@@ -168,31 +173,27 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // MENU
-app.MapGet("/api/menu", async (HttpContext http, AppDbContext db) =>
+app.MapGet("/api/menu", async (MenuQueryDto query, AppDbContext db) =>
 {
-    // Query params
-    var q = http.Request.Query["q"].ToString();
-    var pageStr = http.Request.Query["page"].ToString();
-    var pageSizeStr = http.Request.Query["pageSize"].ToString();
-
     var baseQuery = db.Menu.AsNoTracking().AsQueryable();
-    if (!string.IsNullOrWhiteSpace(q))
+
+    if (!string.IsNullOrWhiteSpace(query.Q))
     {
-        var term = q.Trim().ToLower();
+        var term = query.Q.Trim().ToLower();
         baseQuery = baseQuery.Where(m => EF.Functions.Like(m.Name.ToLower(), $"%{term}%"));
     }
 
     baseQuery = baseQuery.OrderBy(m => m.Name);
 
-    // If no pagination params, keep legacy behavior (list only)
-    if (string.IsNullOrWhiteSpace(pageStr) && string.IsNullOrWhiteSpace(pageSizeStr))
+    var paginationRequested = query.Page.HasValue || query.PageSize.HasValue;
+    if (!paginationRequested)
     {
         var list = await baseQuery.Select(m => new { m.Id, m.Name, m.Price }).ToListAsync();
         return Results.Ok(list);
     }
 
-    int page = int.TryParse(pageStr, out var p) && p > 0 ? p : 1;
-    int pageSize = int.TryParse(pageSizeStr, out var ps) && ps > 0 ? ps : 20;
+    var page = query.Page ?? 1;
+    var pageSize = query.PageSize ?? 20;
     pageSize = Math.Min(pageSize, 100);
 
     var total = await baseQuery.CountAsync();
@@ -203,31 +204,32 @@ app.MapGet("/api/menu", async (HttpContext http, AppDbContext db) =>
         .ToListAsync();
 
     return Results.Ok(new { items, page, pageSize, total });
-}).RequireAuthorization();
+})
+.WithValidator<MenuQueryDto>()
+.RequireAuthorization();
 
 app.MapPost("/api/menu", async (AppDbContext db, CreateMenuItemDto dto) =>
 {
-    if (string.IsNullOrWhiteSpace(dto.Name) || dto.Price <= 0)
-        return Results.BadRequest(new { message = "Invalid name/price" });
-
     var item = new MenuItem { Name = dto.Name.Trim(), Price = dto.Price };
     db.Menu.Add(item);
     await db.SaveChangesAsync();
     return Results.Created($"/api/menu/{item.Id}", new { item.Id });
-}).RequireAuthorization("Admin");
+})
+.WithValidator<CreateMenuItemDto>()
+.RequireAuthorization("Admin");
 
 app.MapPut("/api/menu/{id:guid}", async (Guid id, UpdateMenuItemDto dto, AppDbContext db) =>
 {
     var item = await db.Menu.FindAsync(id);
     if (item is null) return Results.NotFound();
-    if (string.IsNullOrWhiteSpace(dto.Name) || dto.Price <= 0)
-        return Results.BadRequest(new { message = "Invalid name/price" });
 
     item.Name = dto.Name.Trim();
     item.Price = dto.Price;
     await db.SaveChangesAsync();
     return Results.Ok(new { item.Id });
-}).RequireAuthorization("Admin");
+})
+.WithValidator<UpdateMenuItemDto>()
+.RequireAuthorization("Admin");
 
 app.MapDelete("/api/menu/{id:guid}", async (Guid id, AppDbContext db) =>
 {
@@ -272,12 +274,10 @@ app.MapGet("/api/tickets/{id:guid}", async (Guid id, AppDbContext db) =>
 }).RequireAuthorization();
 
 // Tickets list (paged), sorted by CreatedAt DESC
-app.MapGet("/api/tickets", async (HttpContext http, AppDbContext db) =>
+app.MapGet("/api/tickets", async (TicketListQueryDto query, AppDbContext db) =>
 {
-    var pageStr = http.Request.Query["page"].ToString();
-    var pageSizeStr = http.Request.Query["pageSize"].ToString();
-    int page = int.TryParse(pageStr, out var p) && p > 0 ? p : 1;
-    int pageSize = int.TryParse(pageSizeStr, out var ps) && ps > 0 ? ps : 20;
+    var page = query.Page ?? 1;
+    var pageSize = query.PageSize ?? 20;
     pageSize = Math.Min(pageSize, 100);
 
     var baseQuery = db.Tickets.AsNoTracking().OrderByDescending(t => t.CreatedAt);
@@ -289,17 +289,29 @@ app.MapGet("/api/tickets", async (HttpContext http, AppDbContext db) =>
         .ToListAsync();
 
     return Results.Ok(new { items, page, pageSize, total });
-}).RequireAuthorization();
+})
+.WithValidator<TicketListQueryDto>()
+.RequireAuthorization();
 
 app.MapPost("/api/tickets/{id:guid}/lines", async (Guid id, AddLineDto dto, AppDbContext db) =>
 {
-    var t = await db.Tickets.FindAsync(id);
-    if (t is null || t.Status != "Open")
-        return Results.BadRequest(new { message = "Ticket invalid or not open" });
+    var ticket = await db.Tickets.FindAsync(id);
+    if (ticket is null || ticket.Status != "Open")
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["ticketId"] = new[] { "Ticket invalid or not open." }
+        });
+    }
 
     var item = await db.Menu.FindAsync(dto.MenuItemId);
-    if (item is null || dto.Qty < 1)
-        return Results.BadRequest(new { message = "Invalid item/qty" });
+    if (item is null)
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["menuItemId"] = new[] { "Menu item not found." }
+        });
+    }
 
     var existing = await db.TicketLines.FirstOrDefaultAsync(l => l.TicketId == id && l.MenuItemId == item.Id && l.UnitPrice == item.Price);
     if (existing is not null)
@@ -319,13 +331,18 @@ app.MapPost("/api/tickets/{id:guid}/lines", async (Guid id, AddLineDto dto, AppD
 
     await db.SaveChangesAsync();
     return Results.Created($"/api/tickets/{id}", new { ok = true });
-}).RequireAuthorization();
+})
+.WithValidator<AddLineDto>()
+.RequireAuthorization();
 
 app.MapPost("/api/tickets/{id:guid}/pay/cash", async (Guid id, AppDbContext db) =>
 {
     var t = await db.Tickets.Include(x => x.Lines).FirstOrDefaultAsync(x => x.Id == id);
     if (t is null || t.Status != "Open")
-        return Results.BadRequest(new { message = "Ticket invalid or not open" });
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["ticketId"] = new[] { "Ticket invalid or not open." }
+        });
 
     t.Status = "Paid";
     await db.SaveChangesAsync();
@@ -339,38 +356,29 @@ app.MapPost("/api/tickets/{id:guid}/pay/cash", async (Guid id, AppDbContext db) 
 // AUTH
 app.MapPost("/api/auth/register", async (RegisterDto dto, AppDbContext db, IPasswordHasher<User> hasher) =>
 {
-    if (string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
-        return Results.BadRequest(new { message = "Email and password required" });
-
-    if (!dto.Email.Contains('@'))
-        return Results.BadRequest(new { message = "Email is invalid" });
-
-    if (dto.Password.Length < 8)
-        return Results.BadRequest(new { message = "Password must be at least 8 characters" });
-
     var email = dto.Email.Trim().ToLowerInvariant();
-    var exists = await db.Users.AnyAsync(u => u.Email == email);
-    if (exists) return Results.BadRequest(new { message = "Email already registered" });
 
-    var user = new User { Email = email, Role = string.IsNullOrWhiteSpace(dto.Role) ? "user" : dto.Role!.Trim() };
+    var user = new User
+    {
+        Email = email,
+        Role = string.IsNullOrWhiteSpace(dto.Role) ? "user" : dto.Role!.Trim()
+    };
+
     user.PasswordHash = hasher.HashPassword(user, dto.Password);
 
     db.Users.Add(user);
     await db.SaveChangesAsync();
     return Results.Created($"/api/users/{user.Id}", new { user.Id, user.Email, user.Role });
-});
+})
+.WithValidator<RegisterDto>();
 
-app.MapPost("/api/auth/login", async (LoginDto dto, AppDbContext db, HttpContext http) =>
+app.MapPost("/api/auth/login", async (LoginDto dto, AppDbContext db, HttpContext http, IPasswordHasher<User> hasher) =>
 {
-    var email = (dto.Email ?? string.Empty).Trim().ToLowerInvariant();
-    if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(dto.Password))
-        return Results.BadRequest(new { message = "Email and password required" });
+    var email = dto.Email.Trim().ToLowerInvariant();
     var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
     if (user is null) return Results.Unauthorized();
 
-    using var scope = app.Services.CreateScope();
-    var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
-    var result = hasher.VerifyHashedPassword(user, user.PasswordHash, dto.Password ?? string.Empty);
+    var result = hasher.VerifyHashedPassword(user, user.PasswordHash, dto.Password);
     if (result == PasswordVerificationResult.Failed) return Results.Unauthorized();
 
     var jwtSection = app.Configuration.GetSection("Jwt");
@@ -429,7 +437,8 @@ app.MapPost("/api/auth/login", async (LoginDto dto, AppDbContext db, HttpContext
     });
 
     return Results.Ok(new { access_token = jwt, token_type = "Bearer", expires_in = ttlMinutes * 60 });
-});
+})
+.WithValidator<LoginDto>();
 
 app.MapGet("/api/auth/me", (ClaimsPrincipal user) =>
 {
