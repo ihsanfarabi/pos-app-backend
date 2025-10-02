@@ -13,6 +13,8 @@ using PosApi.Contracts;
 using PosApi.Domain;
 using PosApi.Infrastructure;
 using PosApi.Validation;
+using PosApi.Payments;
+using PosApi.API.Payments;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -79,6 +81,11 @@ if (!string.IsNullOrWhiteSpace(jwtSigningKey))
 
 // Password hasher
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+
+// Payments
+builder.Services.AddScoped<ITicketRepository, EfTicketRepository>();
+builder.Services.AddScoped<IPaymentGateway, NoopGateway>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 // Swagger (dev only)
 if (builder.Environment.IsDevelopment())
@@ -336,22 +343,20 @@ app.MapPost("/api/tickets/{id:guid}/lines", async (Guid id, AddLineDto dto, AppD
 .WithValidator<AddLineDto>()
 .RequireAuthorization();
 
-app.MapPost("/api/tickets/{id:guid}/pay/cash", async (Guid id, AppDbContext db) =>
+app.MapPost("/api/tickets/{id:guid}/pay/{method}", async (Guid id, string method, IPaymentService svc, CancellationToken ct) =>
 {
-    var t = await db.Tickets.Include(x => x.Lines).FirstOrDefaultAsync(x => x.Id == id);
-    if (t is null || t.Status != "Open")
+    try
+    {
+        var r = await svc.PayAsync(id, method, ct);
+        return Results.Ok(new { Id = r.TicketId, Status = r.Status, Total = r.Total, TransactionId = r.TransactionId });
+    }
+    catch (InvalidOperationException ex)
+    {
         return Results.ValidationProblem(new Dictionary<string, string[]>
         {
-            ["ticketId"] = new[] { "Ticket invalid or not open." }
+            ["ticketId"] = new[] { ex.Message }
         });
-
-    t.Status = "Paid";
-    await db.SaveChangesAsync();
-
-    var total = await db.TicketLines.Where(l => l.TicketId == id)
-        .SumAsync(l => l.Qty * l.UnitPrice);
-
-    return Results.Ok(new { t.Id, t.Status, Total = total });
+    }
 }).RequireAuthorization();
 
 // AUTH
