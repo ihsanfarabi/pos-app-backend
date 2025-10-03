@@ -94,9 +94,8 @@ public class TicketLine
     {
     }
 
-    private TicketLine(Guid id, Guid ticketId, Guid menuItemId, decimal unitPrice, int quantity)
+    private TicketLine(Guid ticketId, Guid menuItemId, decimal unitPrice, int quantity)
     {
-        Id = id;
         TicketId = ticketId;
         MenuItemId = menuItemId;
         UnitPrice = unitPrice;
@@ -137,7 +136,7 @@ public class TicketLine
             throw new DomainException("Unit price cannot be negative.", "unitPrice");
         }
 
-        return new TicketLine(Guid.NewGuid(), ticketId, menuItemId, unitPrice, quantity);
+        return new TicketLine(ticketId, menuItemId, unitPrice, quantity);
     }
 
     internal void IncreaseQuantity(int quantity)

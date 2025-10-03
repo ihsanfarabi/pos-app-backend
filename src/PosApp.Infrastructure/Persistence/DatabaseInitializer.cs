@@ -25,11 +25,14 @@ public static class DatabaseInitializer
             return;
         }
 
-        context.Menu.AddRange(
-            new MenuItem { Name = "Nasi Goreng Ati Ampela", Price = 25000 },
-            new MenuItem { Name = "Mie Goreng", Price = 22000 },
-            new MenuItem { Name = "Teh Manis", Price = 8000 }
-        );
+        var items = new[]
+        {
+            MenuItem.Create("Nasi Goreng Ati Ampela", 25000),
+            MenuItem.Create("Mie Goreng", 22000),
+            MenuItem.Create("Teh Manis", 8000)
+        };
+
+        context.Menu.AddRange(items);
 
         await context.SaveChangesAsync(cancellationToken);
     }
@@ -48,13 +51,8 @@ public static class DatabaseInitializer
             return;
         }
 
-        var admin = new User
-        {
-            Email = normalizedEmail,
-            Role = "admin"
-        };
-
-        admin.PasswordHash = passwordHasher.HashPassword(admin, adminPassword);
+        var admin = User.Create(normalizedEmail, UserRoles.Admin);
+        admin.SetPasswordHash(passwordHasher.HashPassword(admin, adminPassword));
         context.Users.Add(admin);
         await context.SaveChangesAsync(cancellationToken);
     }
