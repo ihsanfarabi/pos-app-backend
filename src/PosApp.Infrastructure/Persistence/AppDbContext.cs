@@ -27,6 +27,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .HasForeignKey(l => l.TicketId)
              .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.CreatedAt);
+
+            var navigation = e.Metadata.FindNavigation(nameof(Ticket.Lines));
+            if (navigation is not null)
+            {
+                navigation.SetPropertyAccessMode(PropertyAccessMode.Field);
+                navigation.SetField("_lines");
+            }
         });
 
         b.Entity<TicketLine>(e =>

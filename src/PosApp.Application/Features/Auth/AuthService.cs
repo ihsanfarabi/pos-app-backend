@@ -5,6 +5,7 @@ using PosApp.Application.Abstractions.Security;
 using PosApp.Application.Contracts;
 using PosApp.Application.Exceptions;
 using PosApp.Domain.Entities;
+using PosApp.Domain.Exceptions;
 
 namespace PosApp.Application.Features.Auth;
 
@@ -19,15 +20,20 @@ public sealed class AuthService(IUserRepository userRepository, IPasswordHasher 
             throw new ValidationException("Email already registered.", "email");
         }
 
-        var role = string.IsNullOrWhiteSpace(dto.Role) ? "user" : dto.Role.Trim();
+        var role = string.IsNullOrWhiteSpace(dto.Role) ? UserRoles.User : dto.Role.Trim();
 
-        var user = new User
+        User user;
+        try
         {
-            Email = normalizedEmail,
-            Role = role
-        };
+            user = User.Create(normalizedEmail, role);
+        }
+        catch (DomainException ex)
+        {
+            throw new ValidationException(ex.Message, ex.PropertyName);
+        }
 
-        user.PasswordHash = passwordHasher.HashPassword(user, dto.Password);
+        var passwordHash = passwordHasher.HashPassword(user, dto.Password);
+        user.SetPasswordHash(passwordHash);
 
         await userRepository.AddAsync(user, cancellationToken);
         await userRepository.SaveChangesAsync(cancellationToken);

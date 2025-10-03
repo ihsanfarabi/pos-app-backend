@@ -3,6 +3,7 @@ using PosApp.Application.Common;
 using PosApp.Application.Contracts;
 using PosApp.Application.Exceptions;
 using PosApp.Domain.Entities;
+using PosApp.Domain.Exceptions;
 
 namespace PosApp.Application.Features.Tickets;
 
@@ -14,7 +15,7 @@ public sealed class TicketService(ITicketRepository ticketRepository, IMenuRepos
 
     public async Task<Guid> CreateAsync(CancellationToken cancellationToken)
     {
-        var ticket = new Ticket();
+        var ticket = Ticket.Create();
         await ticketRepository.AddAsync(ticket, cancellationToken);
         await ticketRepository.SaveChangesAsync(cancellationToken);
         return ticket.Id;
@@ -64,34 +65,21 @@ public sealed class TicketService(ITicketRepository ticketRepository, IMenuRepos
             throw new NotFoundException("Ticket", ticketId.ToString());
         }
 
-        if (!string.Equals(ticket.Status, "Open", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new ValidationException("Ticket invalid or not open.", "ticketId");
-        }
-
         var menuItem = await menuRepository.GetByIdAsync(dto.MenuItemId, cancellationToken);
         if (menuItem is null)
         {
             throw new ValidationException("Menu item not found.", "menuItemId");
         }
 
-        var existing = ticket.Lines.FirstOrDefault(l => l.MenuItemId == menuItem.Id && l.UnitPrice == menuItem.Price);
-        if (existing is not null)
+        try
         {
-            existing.Qty += dto.Qty;
+            ticket.AddLine(menuItem.Id, menuItem.Price, dto.Qty);
+            await ticketRepository.SaveChangesAsync(cancellationToken);
         }
-        else
+        catch (DomainException ex)
         {
-            ticket.Lines.Add(new TicketLine
-            {
-                TicketId = ticket.Id,
-                MenuItemId = menuItem.Id,
-                Qty = dto.Qty,
-                UnitPrice = menuItem.Price
-            });
+            throw new ValidationException(ex.Message, ex.PropertyName);
         }
-
-        await ticketRepository.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<TicketPaymentResponse> PayCashAsync(Guid ticketId, CancellationToken cancellationToken)
@@ -102,15 +90,17 @@ public sealed class TicketService(ITicketRepository ticketRepository, IMenuRepos
             throw new NotFoundException("Ticket", ticketId.ToString());
         }
 
-        if (!string.Equals(ticket.Status, "Open", StringComparison.OrdinalIgnoreCase))
+        try
         {
-            throw new ValidationException("Ticket invalid or not open.", "ticketId");
+            ticket.PayCash();
+            await ticketRepository.SaveChangesAsync(cancellationToken);
+        }
+        catch (DomainException ex)
+        {
+            throw new ValidationException(ex.Message, ex.PropertyName);
         }
 
-        ticket.Status = "Paid";
-        await ticketRepository.SaveChangesAsync(cancellationToken);
-
-        var total = await ticketRepository.GetTotalAsync(ticketId, cancellationToken);
+        var total = ticket.GetTotal();
         return new TicketPaymentResponse(ticket.Id, ticket.Status, total);
     }
 

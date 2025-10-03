@@ -3,6 +3,7 @@ using PosApp.Application.Common;
 using PosApp.Application.Contracts;
 using PosApp.Application.Exceptions;
 using PosApp.Domain.Entities;
+using PosApp.Domain.Exceptions;
 
 namespace PosApp.Application.Features.Menu;
 
@@ -33,15 +34,18 @@ public sealed class MenuService(IMenuRepository repository) : IMenuService
 
     public async Task<Guid> CreateAsync(CreateMenuItemDto dto, CancellationToken cancellationToken)
     {
-        var menuItem = new MenuItem
+        try
         {
-            Name = dto.Name.Trim(),
-            Price = dto.Price
-        };
+            var menuItem = MenuItem.Create(dto.Name, dto.Price);
 
-        await repository.AddAsync(menuItem, cancellationToken);
-        await repository.SaveChangesAsync(cancellationToken);
-        return menuItem.Id;
+            await repository.AddAsync(menuItem, cancellationToken);
+            await repository.SaveChangesAsync(cancellationToken);
+            return menuItem.Id;
+        }
+        catch (DomainException ex)
+        {
+            throw new ValidationException(ex.Message, ex.PropertyName);
+        }
     }
 
     public async Task UpdateAsync(Guid id, UpdateMenuItemDto dto, CancellationToken cancellationToken)
@@ -52,9 +56,15 @@ public sealed class MenuService(IMenuRepository repository) : IMenuService
             throw new NotFoundException("MenuItem", id.ToString());
         }
 
-        menuItem.Name = dto.Name.Trim();
-        menuItem.Price = dto.Price;
-        await repository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            menuItem.Update(dto.Name, dto.Price);
+            await repository.SaveChangesAsync(cancellationToken);
+        }
+        catch (DomainException ex)
+        {
+            throw new ValidationException(ex.Message, ex.PropertyName);
+        }
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
