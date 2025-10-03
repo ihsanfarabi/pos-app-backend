@@ -38,19 +38,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         b.Entity<TicketLine>(e =>
         {
-            var idProperty = e.Property(x => x.Id);
-            idProperty.ValueGeneratedOnAdd();
-
-            if (Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                idProperty.HasDefaultValueSql("gen_random_uuid()");
-            }
-            else if (Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                idProperty.HasDefaultValueSql(
-                    "lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-' || '4' || substr(lower(hex(randomblob(2))), 2) || '-' || substr('89ab', abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))), 2) || '-' || lower(hex(randomblob(6)))");
-            }
-
             e.Property(x => x.UnitPrice).HasPrecision(9, 2);
             e.Property(x => x.Qty).HasDefaultValue(1);
         });
