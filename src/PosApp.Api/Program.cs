@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using FluentValidation;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -12,10 +13,12 @@ using PosApp.Application;
 using PosApp.Application.Abstractions.Security;
 using PosApp.Application.Contracts;
 using PosApp.Application.Exceptions;
-using PosApp.Application.Features.Auth;
-using PosApp.Application.Features.Menu;
-using PosApp.Application.Features.Tickets;
-using PosApp.Application.Validation.Validators;
+using PosApp.Application.Features.Auth.Commands;
+using PosApp.Application.Features.Menu.Commands;
+using PosApp.Application.Features.Menu.Queries;
+using PosApp.Application.Features.Tickets.Commands;
+using PosApp.Application.Features.Tickets.Queries;
+using PosApp.Application.Validation;
 using PosApp.Infrastructure;
 using PosApp.Infrastructure.Persistence;
 using AppValidationException = PosApp.Application.Exceptions.ValidationException;
@@ -156,11 +159,11 @@ static void ConfigureSwagger(WebApplicationBuilder builder)
 
 static void MapMenuEndpoints(WebApplication app)
 {
-    app.MapGet("/api/menu", async ([AsParameters] MenuQueryDto query, IMenuService menuService, CancellationToken cancellationToken) =>
+    app.MapGet("/api/menu", async ([AsParameters] MenuQueryDto query, ISender sender, CancellationToken cancellationToken) =>
     {
         try
         {
-            var result = await menuService.GetAsync(query, cancellationToken);
+            var result = await sender.Send(new GetMenuItemsQuery(query), cancellationToken);
             if (result.Pagination is null)
             {
                 return Results.Ok(result.Items);
@@ -182,19 +185,19 @@ static void MapMenuEndpoints(WebApplication app)
     .WithValidator<MenuQueryDto>()
     .RequireAuthorization();
 
-    app.MapPost("/api/menu", async (IMenuService menuService, CreateMenuItemDto dto, CancellationToken cancellationToken) =>
+    app.MapPost("/api/menu", async (ISender sender, CreateMenuItemDto dto, CancellationToken cancellationToken) =>
     {
-        var id = await menuService.CreateAsync(dto, cancellationToken);
+        var id = await sender.Send(new CreateMenuItemCommand(dto), cancellationToken);
         return Results.Created($"/api/menu/{id}", new { id });
     })
     .WithValidator<CreateMenuItemDto>()
     .RequireAuthorization("Admin");
 
-    app.MapPut("/api/menu/{id:guid}", async (Guid id, UpdateMenuItemDto dto, IMenuService menuService, CancellationToken cancellationToken) =>
+    app.MapPut("/api/menu/{id:guid}", async (Guid id, UpdateMenuItemDto dto, ISender sender, CancellationToken cancellationToken) =>
     {
         try
         {
-            await menuService.UpdateAsync(id, dto, cancellationToken);
+            await sender.Send(new UpdateMenuItemCommand(id, dto), cancellationToken);
             return Results.Ok(new { id });
         }
         catch (NotFoundException)
@@ -205,9 +208,9 @@ static void MapMenuEndpoints(WebApplication app)
     .WithValidator<UpdateMenuItemDto>()
     .RequireAuthorization("Admin");
 
-    app.MapDelete("/api/menu/{id:guid}", async (Guid id, IMenuService menuService, CancellationToken cancellationToken) =>
+    app.MapDelete("/api/menu/{id:guid}", async (Guid id, ISender sender, CancellationToken cancellationToken) =>
     {
-        var deleted = await menuService.DeleteAsync(id, cancellationToken);
+        var deleted = await sender.Send(new DeleteMenuItemCommand(id), cancellationToken);
         return deleted ? Results.NoContent() : Results.NotFound();
     })
     .RequireAuthorization("Admin");
@@ -215,23 +218,23 @@ static void MapMenuEndpoints(WebApplication app)
 
 static void MapTicketEndpoints(WebApplication app)
 {
-    app.MapPost("/api/tickets", async (ITicketService ticketService, CancellationToken cancellationToken) =>
+    app.MapPost("/api/tickets", async (ISender sender, CancellationToken cancellationToken) =>
     {
-        var id = await ticketService.CreateAsync(cancellationToken);
+        var id = await sender.Send(new CreateTicketCommand(), cancellationToken);
         return Results.Created($"/api/tickets/{id}", new { id });
     })
     .RequireAuthorization();
 
-    app.MapGet("/api/tickets/{id:guid}", async (Guid id, ITicketService ticketService, CancellationToken cancellationToken) =>
+    app.MapGet("/api/tickets/{id:guid}", async (Guid id, ISender sender, CancellationToken cancellationToken) =>
     {
-        var ticket = await ticketService.GetAsync(id, cancellationToken);
+        var ticket = await sender.Send(new GetTicketDetailsQuery(id), cancellationToken);
         return ticket is null ? Results.NotFound() : Results.Ok(ticket);
     })
     .RequireAuthorization();
 
-    app.MapGet("/api/tickets", async ([AsParameters] TicketListQueryDto query, ITicketService ticketService, CancellationToken cancellationToken) =>
+    app.MapGet("/api/tickets", async ([AsParameters] TicketListQueryDto query, ISender sender, CancellationToken cancellationToken) =>
     {
-        var result = await ticketService.GetListAsync(query, cancellationToken);
+        var result = await sender.Send(new GetTicketsQuery(query), cancellationToken);
         return Results.Ok(new
         {
             items = result.Items,
@@ -243,11 +246,11 @@ static void MapTicketEndpoints(WebApplication app)
     .WithValidator<TicketListQueryDto>()
     .RequireAuthorization();
 
-    app.MapPost("/api/tickets/{id:guid}/lines", async (Guid id, AddLineDto dto, ITicketService ticketService, CancellationToken cancellationToken) =>
+    app.MapPost("/api/tickets/{id:guid}/lines", async (Guid id, AddLineDto dto, ISender sender, CancellationToken cancellationToken) =>
     {
         try
         {
-            await ticketService.AddLineAsync(id, dto, cancellationToken);
+            await sender.Send(new AddTicketLineCommand(id, dto), cancellationToken);
             return Results.Created($"/api/tickets/{id}", new { ok = true });
         }
         catch (NotFoundException)
@@ -262,11 +265,11 @@ static void MapTicketEndpoints(WebApplication app)
     .WithValidator<AddLineDto>()
     .RequireAuthorization();
 
-    app.MapPost("/api/tickets/{id:guid}/pay/cash", async (Guid id, ITicketService ticketService, CancellationToken cancellationToken) =>
+    app.MapPost("/api/tickets/{id:guid}/pay/cash", async (Guid id, ISender sender, CancellationToken cancellationToken) =>
     {
         try
         {
-            var payment = await ticketService.PayCashAsync(id, cancellationToken);
+            var payment = await sender.Send(new PayTicketCashCommand(id), cancellationToken);
             return Results.Ok(payment);
         }
         catch (NotFoundException)
@@ -283,12 +286,13 @@ static void MapTicketEndpoints(WebApplication app)
 
 static void MapAuthEndpoints(WebApplication app)
 {
-    app.MapPost("/api/auth/register", async (RegisterDto dto, IAuthService authService, CancellationToken cancellationToken) =>
+    app.MapPost("/api/auth/register", async (RegisterDto dto, ISender sender, CancellationToken cancellationToken) =>
     {
         try
         {
-            var id = await authService.RegisterAsync(dto, cancellationToken);
-            return Results.Created($"/api/users/{id}", new { id, email = dto.Email.Trim().ToLowerInvariant() });
+            var id = await sender.Send(new RegisterUserCommand(dto), cancellationToken);
+            var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+            return Results.Created($"/api/users/{id}", new { id, email = normalizedEmail });
         }
         catch (AppValidationException ex)
         {
@@ -297,9 +301,9 @@ static void MapAuthEndpoints(WebApplication app)
     })
     .WithValidator<RegisterDto>();
 
-    app.MapPost("/api/auth/login", async (LoginDto dto, IAuthService authService, HttpContext httpContext, CancellationToken cancellationToken) =>
+    app.MapPost("/api/auth/login", async (LoginDto dto, ISender sender, HttpContext httpContext, CancellationToken cancellationToken) =>
     {
-        var result = await authService.LoginAsync(dto, cancellationToken);
+        var result = await sender.Send(new LoginCommand(dto), cancellationToken);
         if (result is null)
         {
             return Results.Unauthorized();
@@ -329,14 +333,14 @@ static void MapAuthEndpoints(WebApplication app)
     })
     .RequireAuthorization();
 
-    app.MapPost("/api/auth/refresh", async (HttpContext httpContext, IAuthService authService, CancellationToken cancellationToken) =>
+    app.MapPost("/api/auth/refresh", async (HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
     {
         if (!httpContext.Request.Cookies.TryGetValue(RefreshTokenCookieName, out var refreshToken))
         {
             return Results.Unauthorized();
         }
 
-        var result = await authService.RefreshAsync(refreshToken, cancellationToken);
+        var result = await sender.Send(new RefreshTokenCommand(refreshToken), cancellationToken);
         if (result is null)
         {
             return Results.Unauthorized();

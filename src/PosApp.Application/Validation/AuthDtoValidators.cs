@@ -2,7 +2,7 @@ using FluentValidation;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Contracts;
 
-namespace PosApp.Application.Validation.Validators;
+namespace PosApp.Application.Validation;
 
 public class RegisterDtoValidator : AbstractValidator<RegisterDto>
 {
