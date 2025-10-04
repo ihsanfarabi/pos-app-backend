@@ -1,5 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Abstractions.Security;
 using PosApp.Application.Contracts;
@@ -68,20 +66,13 @@ public sealed class AuthService(IUserRepository userRepository, IPasswordHasher 
             return null;
         }
 
-        var principal = tokenService.ValidateRefreshToken(refreshToken);
-        if (principal is null)
+        var validationResult = tokenService.ValidateRefreshToken(refreshToken);
+        if (validationResult is null)
         {
             return null;
         }
 
-        var sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
-                  ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (!Guid.TryParse(sub, out var userId))
-        {
-            return null;
-        }
-
-        var user = await userRepository.GetByIdAsync(userId, cancellationToken);
+        var user = await userRepository.GetByIdAsync(validationResult.UserId, cancellationToken);
         if (user is null)
         {
             return null;

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System;
 using PosApp.Domain.Entities;
 
 namespace PosApp.Application.Abstractions.Security;
@@ -9,9 +10,11 @@ public interface ITokenService
 
     RefreshToken CreateRefreshToken(User user);
 
-    ClaimsPrincipal? ValidateRefreshToken(string refreshToken);
+    RefreshTokenValidationResult? ValidateRefreshToken(string refreshToken);
 }
 
 public sealed record AccessToken(string Token, int ExpiresInSeconds);
 
 public sealed record RefreshToken(string Token, DateTimeOffset ExpiresAt);
+
+public sealed record RefreshTokenValidationResult(Guid UserId);

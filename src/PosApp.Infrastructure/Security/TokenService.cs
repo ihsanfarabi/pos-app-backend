@@ -69,7 +69,7 @@ public sealed class TokenService : ITokenService
         return new RefreshToken(jwt, expires);
     }
 
-    public ClaimsPrincipal? ValidateRefreshToken(string refreshToken)
+    public RefreshTokenValidationResult? ValidateRefreshToken(string refreshToken)
     {
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
@@ -98,7 +98,14 @@ public sealed class TokenService : ITokenService
                 return null;
             }
 
-            return principal;
+            var subject = principal.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                          ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(subject, out var userId))
+            {
+                return null;
+            }
+
+            return new RefreshTokenValidationResult(userId);
         }
         catch
         {
