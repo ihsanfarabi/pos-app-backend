@@ -6,7 +6,7 @@ public sealed record TicketListItemResponse(Guid Id, string Status, DateTime Cre
 
 public sealed record TicketListResult(IReadOnlyList<TicketListItemResponse> Items, PaginationMetadata Pagination);
 
-public sealed record TicketLineResponse(Guid Id, string ItemName, int Quantity, decimal UnitPrice, decimal LineTotal);
+public sealed record TicketLineResponse(Guid Id, string ItemName, int Qty, decimal UnitPrice, decimal LineTotal);
 
 public sealed record TicketDetailsResponse(Guid Id, string Status, DateTime CreatedAt, IReadOnlyList<TicketLineResponse> Lines, decimal Total);
 
