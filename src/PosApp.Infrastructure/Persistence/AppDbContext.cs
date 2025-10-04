@@ -21,7 +21,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         b.Entity<Ticket>(e =>
         {
-            e.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("Open");
+            e.Property(x => x.Status)
+             .HasConversion<string>()
+             .HasMaxLength(20)
+             .HasDefaultValue(TicketStatus.Open);
             e.HasMany(x => x.Lines)
              .WithOne()
              .HasForeignKey(l => l.TicketId)

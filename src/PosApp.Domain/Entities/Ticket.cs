@@ -19,7 +19,7 @@ public class Ticket
 
     public Guid Id { get; private set; }
 
-    public string Status { get; private set; } = TicketStatus.Open;
+    public TicketStatus Status { get; private set; } = TicketStatus.Open;
 
     public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
 
@@ -74,18 +74,18 @@ public class Ticket
 
     private void EnsureOpen()
     {
-        if (!string.Equals(Status, TicketStatus.Open, StringComparison.OrdinalIgnoreCase))
+        if (Status != TicketStatus.Open)
         {
             throw new DomainException("Ticket is not open.", "ticketId");
         }
     }
 }
 
-public static class TicketStatus
+public enum TicketStatus
 {
-    public const string Open = "Open";
-    public const string Paid = "Paid";
-    public const string Cancelled = "Cancelled";
+    Open = 0,
+    Paid = 1,
+    Cancelled = 2
 }
 
 public class TicketLine

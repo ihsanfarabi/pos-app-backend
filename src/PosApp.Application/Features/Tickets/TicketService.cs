@@ -41,7 +41,7 @@ public sealed class TicketService(ITicketRepository ticketRepository, IMenuRepos
             .ToList();
 
         var totalAmount = lines.Sum(x => x.LineTotal);
-        return new TicketDetailsResponse(ticket.Id, ticket.Status, ticket.CreatedAt, lines, totalAmount);
+        return new TicketDetailsResponse(ticket.Id, ticket.Status.ToString(), ticket.CreatedAt, lines, totalAmount);
     }
 
     public async Task<TicketListResult> GetListAsync(TicketListQueryDto query, CancellationToken cancellationToken)
@@ -51,7 +51,7 @@ public sealed class TicketService(ITicketRepository ticketRepository, IMenuRepos
 
         var pagedTickets = await ticketRepository.GetPagedAsync(page, pageSize, cancellationToken);
         var items = pagedTickets.Items
-            .Select(t => new TicketListItemResponse(t.Id, t.Status, t.CreatedAt))
+            .Select(t => new TicketListItemResponse(t.Id, t.Status.ToString(), t.CreatedAt))
             .ToList();
         var pagination = new PaginationMetadata(pagedTickets.Page, pagedTickets.PageSize, pagedTickets.Total);
         return new TicketListResult(items, pagination);
@@ -101,7 +101,7 @@ public sealed class TicketService(ITicketRepository ticketRepository, IMenuRepos
         }
 
         var total = ticket.GetTotal();
-        return new TicketPaymentResponse(ticket.Id, ticket.Status, total);
+        return new TicketPaymentResponse(ticket.Id, ticket.Status.ToString(), total);
     }
 
     private static int NormalizePageSize(int? requested)
