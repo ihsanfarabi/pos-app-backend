@@ -5,6 +5,7 @@ using PosApp.Application.Contracts;
 using PosApp.Application.Features.Tickets;
 using PosApp.Application.Features.Tickets.Commands;
 using PosApp.Application.Features.Tickets.Queries;
+using PosApp.Api.Services;
 
 namespace PosApp.Api.Endpoints;
 
@@ -25,19 +26,19 @@ public static class TicketEndpoints
     }
 
     private static async Task<Created<TicketCreatedResponse>> CreateTicketAsync(
-        ISender sender,
+        [AsParameters] TicketServices services,
         CancellationToken cancellationToken)
     {
-        var id = await sender.Send(new CreateTicketCommand(), cancellationToken);
+        var id = await services.Sender.Send(new CreateTicketCommand(), cancellationToken);
         return TypedResults.Created($"/api/tickets/{id}", new TicketCreatedResponse(id));
     }
 
     private static async Task<Results<Ok<TicketDetailsResponse>, NotFound>> GetTicketAsync(
         Guid id,
-        ISender sender,
+        [AsParameters] TicketServices services,
         CancellationToken cancellationToken)
     {
-        var ticket = await sender.Send(new GetTicketDetailsQuery(id), cancellationToken);
+        var ticket = await services.Sender.Send(new GetTicketDetailsQuery(id), cancellationToken);
         return ticket is null
             ? TypedResults.NotFound()
             : TypedResults.Ok(ticket);
@@ -45,11 +46,11 @@ public static class TicketEndpoints
 
     private static async Task<Ok<PaginatedItems<TicketListItemResponse>>> GetTicketsAsync(
         [AsParameters] PaginationRequest paginationRequest,
-        ISender sender,
+        [AsParameters] TicketServices services,
         CancellationToken cancellationToken)
     {
         var queryDto = new TicketListQueryDto(paginationRequest.PageIndex, paginationRequest.PageSize);
-        var result = await sender.Send(new GetTicketsQuery(queryDto), cancellationToken);
+        var result = await services.Sender.Send(new GetTicketsQuery(queryDto), cancellationToken);
         var response = new PaginatedItems<TicketListItemResponse>(
             result.PageIndex,
             result.PageSize,
@@ -62,12 +63,12 @@ public static class TicketEndpoints
     private static async Task<Results<Created<TicketLineCreatedResponse>, NotFound>> AddTicketLineAsync(
         Guid id,
         AddLineDto dto,
-        ISender sender,
+        [AsParameters] TicketServices services,
         CancellationToken cancellationToken)
     {
         try
         {
-            await sender.Send(new AddTicketLineCommand(id, dto), cancellationToken);
+            await services.Sender.Send(new AddTicketLineCommand(id, dto), cancellationToken);
             return TypedResults.Created($"/api/tickets/{id}", new TicketLineCreatedResponse(true));
         }
         catch (KeyNotFoundException)
@@ -78,12 +79,12 @@ public static class TicketEndpoints
 
     private static async Task<Results<Ok<TicketPaymentResponse>, NotFound>> PayTicketCashAsync(
         Guid id,
-        ISender sender,
+        [AsParameters] TicketServices services,
         CancellationToken cancellationToken)
     {
         try
         {
-            var payment = await sender.Send(new PayTicketCashCommand(id), cancellationToken);
+            var payment = await services.Sender.Send(new PayTicketCashCommand(id), cancellationToken);
             return TypedResults.Ok(payment);
         }
         catch (KeyNotFoundException)

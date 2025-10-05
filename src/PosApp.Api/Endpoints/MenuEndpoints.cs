@@ -5,6 +5,7 @@ using PosApp.Application.Contracts;
 using PosApp.Application.Features.Menu;
 using PosApp.Application.Features.Menu.Commands;
 using PosApp.Application.Features.Menu.Queries;
+using PosApp.Api.Services;
 
 namespace PosApp.Api.Endpoints;
 
@@ -32,11 +33,11 @@ public static class MenuEndpoints
     private static async Task<Ok<PaginatedItems<MenuItemResponse>>> GetMenuItemsAsync(
         [AsParameters] PaginationRequest paginationRequest,
         string? q,
-        ISender sender,
+        [AsParameters] MenuServices services,
         CancellationToken cancellationToken)
     {
         var queryDto = new MenuQueryDto(q, paginationRequest.PageIndex, paginationRequest.PageSize);
-        var result = await sender.Send(new GetMenuItemsQuery(queryDto), cancellationToken);
+        var result = await services.Sender.Send(new GetMenuItemsQuery(queryDto), cancellationToken);
         var response = new PaginatedItems<MenuItemResponse>(
             result.PageIndex,
             result.PageSize,
@@ -47,11 +48,11 @@ public static class MenuEndpoints
     }
 
     private static async Task<Created<MenuItemCreatedResponse>> CreateMenuItemAsync(
-        ISender sender,
+        [AsParameters] MenuServices services,
         CreateMenuItemDto dto,
         CancellationToken cancellationToken)
     {
-        var id = await sender.Send(new CreateMenuItemCommand(dto), cancellationToken);
+        var id = await services.Sender.Send(new CreateMenuItemCommand(dto), cancellationToken);
         var response = new MenuItemCreatedResponse(id);
         return TypedResults.Created($"/api/menu/{id}", response);
     }
@@ -59,12 +60,12 @@ public static class MenuEndpoints
     private static async Task<Results<Ok<MenuItemUpdatedResponse>, NotFound>> UpdateMenuItemAsync(
         Guid id,
         UpdateMenuItemDto dto,
-        ISender sender,
+        [AsParameters] MenuServices services,
         CancellationToken cancellationToken)
     {
         try
         {
-            await sender.Send(new UpdateMenuItemCommand(id, dto), cancellationToken);
+            await services.Sender.Send(new UpdateMenuItemCommand(id, dto), cancellationToken);
             return TypedResults.Ok(new MenuItemUpdatedResponse(id));
         }
         catch (KeyNotFoundException)
@@ -75,12 +76,12 @@ public static class MenuEndpoints
 
     private static async Task<Results<NoContent, NotFound>> DeleteMenuItemAsync(
         Guid id,
-        ISender sender,
+        [AsParameters] MenuServices services,
         CancellationToken cancellationToken)
     {
         try
         {
-            await sender.Send(new DeleteMenuItemCommand(id), cancellationToken);
+            await services.Sender.Send(new DeleteMenuItemCommand(id), cancellationToken);
             return TypedResults.NoContent();
         }
         catch (KeyNotFoundException)

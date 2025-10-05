@@ -1,11 +1,11 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
-using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 using PosApp.Application.Abstractions.Security;
 using PosApp.Application.Contracts;
 using PosApp.Application.Features.Auth.Commands;
+using PosApp.Api.Services;
 
 namespace PosApp.Api.Endpoints;
 
@@ -33,21 +33,21 @@ public static class AuthEndpoints
 
     private static async Task<Created<UserRegisteredResponse>> RegisterAsync(
         RegisterDto dto,
-        ISender sender,
+        [AsParameters] AuthServices services,
         CancellationToken cancellationToken)
     {
-        var id = await sender.Send(new RegisterUserCommand(dto), cancellationToken);
+        var id = await services.Sender.Send(new RegisterUserCommand(dto), cancellationToken);
         var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
         return TypedResults.Created($"/api/users/{id}", new UserRegisteredResponse(id, normalizedEmail));
     }
 
     private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult>> LoginAsync(
         LoginDto dto,
-        ISender sender,
+        [AsParameters] AuthServices services,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        var result = await sender.Send(new LoginCommand(dto), cancellationToken);
+        var result = await services.Sender.Send(new LoginCommand(dto), cancellationToken);
         if (result is null)
         {
             return TypedResults.Unauthorized();
@@ -76,14 +76,14 @@ public static class AuthEndpoints
 
     private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult>> RefreshAsync(
         HttpContext httpContext,
-        ISender sender,
+        [AsParameters] AuthServices services,
         CancellationToken cancellationToken)
     {
         if (!httpContext.Request.Cookies.TryGetValue(RefreshTokenCookieName, out var refreshToken))
         {
             return TypedResults.Unauthorized();
         }
-        var result = await sender.Send(new RefreshTokenCommand(refreshToken), cancellationToken);
+        var result = await services.Sender.Send(new RefreshTokenCommand(refreshToken), cancellationToken);
         if (result is null)
         {
             return TypedResults.Unauthorized();
