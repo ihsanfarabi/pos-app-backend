@@ -6,6 +6,7 @@ using PosApp.Application.Features.Tickets;
 using PosApp.Application.Features.Tickets.Commands;
 using PosApp.Application.Features.Tickets.Queries;
 using PosApp.Api.Services;
+using PosApp.Api.Extensions;
 
 namespace PosApp.Api.Endpoints;
 
@@ -47,6 +48,7 @@ public static class TicketEndpoints
     private static async Task<Ok<PaginatedItems<TicketListItemResponse>>> GetTicketsAsync(
         [AsParameters] PaginationRequest paginationRequest,
         [AsParameters] TicketServices services,
+        HttpContext httpContext,
         CancellationToken cancellationToken)
     {
         var queryDto = new TicketListQueryDto(paginationRequest.PageIndex, paginationRequest.PageSize);
@@ -56,7 +58,7 @@ public static class TicketEndpoints
             result.PageSize,
             result.TotalCount,
             result.Items);
-
+        httpContext.Response.AddPaginationHeaders(result.PageIndex, result.PageSize, result.TotalCount);
         return TypedResults.Ok(response);
     }
 

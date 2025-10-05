@@ -44,7 +44,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     KnownProxies = { }
 });
 
-// Global exception handling to map domain and not-found to ProblemDetails
+// Global exception handling to map domain and not-found to ProblemDetails (RFC7807)
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
@@ -57,10 +57,29 @@ app.UseExceptionHandler(errorApp =>
             _ => StatusCodes.Status500InternalServerError
         };
 
+        var type = statusCode switch
+        {
+            StatusCodes.Status400BadRequest => "https://httpstatuses.com/400",
+            StatusCodes.Status404NotFound => "https://httpstatuses.com/404",
+            _ => "https://httpstatuses.com/500"
+        };
+
+        var title = statusCode switch
+        {
+            StatusCodes.Status400BadRequest => "Bad Request",
+            StatusCodes.Status404NotFound => "Not Found",
+            _ => "Internal Server Error"
+        };
+
         var problem = Results.Problem(
-            title: "An error occurred while processing your request.",
+            type: type,
+            title: title,
             detail: exception?.Message,
-            statusCode: statusCode);
+            statusCode: statusCode,
+            extensions: new Dictionary<string, object?>
+            {
+                ["traceId"] = context.TraceIdentifier
+            });
 
         await problem.ExecuteAsync(context);
     });

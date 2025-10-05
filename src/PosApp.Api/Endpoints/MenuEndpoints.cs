@@ -6,6 +6,7 @@ using PosApp.Application.Features.Menu;
 using PosApp.Application.Features.Menu.Commands;
 using PosApp.Application.Features.Menu.Queries;
 using PosApp.Api.Services;
+using PosApp.Api.Extensions;
 
 namespace PosApp.Api.Endpoints;
 
@@ -34,10 +35,12 @@ public static class MenuEndpoints
         [AsParameters] PaginationRequest paginationRequest,
         string? q,
         [AsParameters] MenuServices services,
+        HttpContext httpContext,
         CancellationToken cancellationToken)
     {
         var queryDto = new MenuQueryDto(q, paginationRequest.PageIndex, paginationRequest.PageSize);
         var result = await services.Sender.Send(new GetMenuItemsQuery(queryDto), cancellationToken);
+        httpContext.Response.AddPaginationHeaders(result.PageIndex, result.PageSize, result.TotalCount);
         var response = new PaginatedItems<MenuItemResponse>(
             result.PageIndex,
             result.PageSize,
