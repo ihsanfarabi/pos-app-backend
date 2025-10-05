@@ -19,7 +19,7 @@ public sealed class TicketRepository(AppDbContext dbContext) : ITicketRepository
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
     }
 
-    public async Task<PagedResult<Ticket>> GetPagedAsync(int page, int pageSize, CancellationToken cancellationToken)
+    public async Task<PagedResult<Ticket>> GetPagedAsync(int pageIndex, int pageSize, CancellationToken cancellationToken)
     {
         var query = dbContext.Tickets
             .AsNoTracking()
@@ -27,11 +27,11 @@ public sealed class TicketRepository(AppDbContext dbContext) : ITicketRepository
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query
-            .Skip((page - 1) * pageSize)
+            .Skip(pageIndex * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        return new PagedResult<Ticket>(items, page, pageSize, total);
+        return new PagedResult<Ticket>(items, pageIndex, pageSize, total);
     }
 
     public async Task AddAsync(Ticket ticket, CancellationToken cancellationToken)

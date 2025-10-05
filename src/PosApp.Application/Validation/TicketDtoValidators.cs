@@ -19,13 +19,11 @@ public class TicketListQueryDtoValidator : AbstractValidator<TicketListQueryDto>
 {
     public TicketListQueryDtoValidator()
     {
-        RuleFor(x => x.Page)
-            .GreaterThan(0)
-            .When(x => x.Page.HasValue);
+        RuleFor(x => x.PageIndex)
+            .GreaterThanOrEqualTo(0);
 
         RuleFor(x => x.PageSize)
             .GreaterThan(0)
-            .LessThanOrEqualTo(100)
-            .When(x => x.PageSize.HasValue);
+            .LessThanOrEqualTo(100);
     }
 }

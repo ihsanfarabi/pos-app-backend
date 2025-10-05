@@ -7,9 +7,7 @@ public interface IMenuRepository
 {
     Task<MenuItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<MenuItem>> SearchAsync(string? term, CancellationToken cancellationToken);
-
-    Task<PagedResult<MenuItem>> GetPagedAsync(string? term, int page, int pageSize, CancellationToken cancellationToken);
+    Task<PagedResult<MenuItem>> GetPagedAsync(string? term, int pageIndex, int pageSize, CancellationToken cancellationToken);
 
     Task AddAsync(MenuItem menuItem, CancellationToken cancellationToken);
 

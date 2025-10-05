@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
+using PosApp.Api.Contracts;
 using PosApp.Api.Extensions;
 using PosApp.Application.Contracts;
 using PosApp.Application.Exceptions;
@@ -30,23 +31,19 @@ public static class MenuEndpoints
         return group;
     }
 
-    private static async Task<Results<Ok<IReadOnlyList<MenuItemResponse>>, Ok<MenuItemsPageResponse>>> GetMenuItemsAsync(
-        [AsParameters] MenuQueryDto query,
+    private static async Task<Ok<PaginatedItems<MenuItemResponse>>> GetMenuItemsAsync(
+        [AsParameters] PaginationRequest paginationRequest,
+        string? q,
         ISender sender,
         CancellationToken cancellationToken)
     {
-        var result = await sender.Send(new GetMenuItemsQuery(query), cancellationToken);
-        if (result.Pagination is null)
-        {
-            return TypedResults.Ok(result.Items);
-        }
-
-        var pagination = result.Pagination;
-        var response = new MenuItemsPageResponse(
-            result.Items,
-            pagination.Page,
-            pagination.PageSize,
-            pagination.Total);
+        var queryDto = new MenuQueryDto(q, paginationRequest.PageIndex, paginationRequest.PageSize);
+        var result = await sender.Send(new GetMenuItemsQuery(queryDto), cancellationToken);
+        var response = new PaginatedItems<MenuItemResponse>(
+            result.PageIndex,
+            result.PageSize,
+            result.TotalCount,
+            result.Items);
 
         return TypedResults.Ok(response);
     }
@@ -93,14 +90,6 @@ public static class MenuEndpoints
             return TypedResults.NotFound();
         }
     }
-
-    
-
-    private sealed record MenuItemsPageResponse(
-        IReadOnlyList<MenuItemResponse> Items,
-        int Page,
-        int PageSize,
-        int Total);
 
     private sealed record MenuItemCreatedResponse(Guid Id);
 

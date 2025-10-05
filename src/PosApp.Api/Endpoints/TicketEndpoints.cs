@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
+using PosApp.Api.Contracts;
 using PosApp.Api.Extensions;
 using PosApp.Application.Contracts;
 using PosApp.Application.Exceptions;
@@ -44,17 +45,18 @@ public static class TicketEndpoints
             : TypedResults.Ok(ticket);
     }
 
-    private static async Task<Ok<TicketListPageResponse>> GetTicketsAsync(
-        [AsParameters] TicketListQueryDto query,
+    private static async Task<Ok<PaginatedItems<TicketListItemResponse>>> GetTicketsAsync(
+        [AsParameters] PaginationRequest paginationRequest,
         ISender sender,
         CancellationToken cancellationToken)
     {
-        var result = await sender.Send(new GetTicketsQuery(query), cancellationToken);
-        var response = new TicketListPageResponse(
-            result.Items,
-            result.Pagination.Page,
-            result.Pagination.PageSize,
-            result.Pagination.Total);
+        var queryDto = new TicketListQueryDto(paginationRequest.PageIndex, paginationRequest.PageSize);
+        var result = await sender.Send(new GetTicketsQuery(queryDto), cancellationToken);
+        var response = new PaginatedItems<TicketListItemResponse>(
+            result.PageIndex,
+            result.PageSize,
+            result.TotalCount,
+            result.Items);
 
         return TypedResults.Ok(response);
     }
@@ -95,10 +97,4 @@ public static class TicketEndpoints
     private sealed record TicketCreatedResponse(Guid Id);
 
     private sealed record TicketLineCreatedResponse(bool Ok);
-
-    private sealed record TicketListPageResponse(
-        IReadOnlyList<TicketListItemResponse> Items,
-        int Page,
-        int PageSize,
-        int Total);
 }

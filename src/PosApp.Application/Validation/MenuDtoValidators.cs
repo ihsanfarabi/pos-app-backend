@@ -36,13 +36,11 @@ public class MenuQueryDtoValidator : AbstractValidator<MenuQueryDto>
         RuleFor(x => x.Q)
             .MaximumLength(200);
 
-        RuleFor(x => x.Page)
-            .GreaterThan(0)
-            .When(x => x.Page.HasValue);
+        RuleFor(x => x.PageIndex)
+            .GreaterThanOrEqualTo(0);
 
         RuleFor(x => x.PageSize)
             .GreaterThan(0)
-            .LessThanOrEqualTo(100)
-            .When(x => x.PageSize.HasValue);
+            .LessThanOrEqualTo(100);
     }
 }

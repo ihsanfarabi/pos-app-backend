@@ -12,21 +12,7 @@ public sealed class MenuRepository(AppDbContext dbContext) : IMenuRepository
         return await dbContext.Menu.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<MenuItem>> SearchAsync(string? term, CancellationToken cancellationToken)
-    {
-        var query = dbContext.Menu.AsNoTracking().AsQueryable();
-        if (!string.IsNullOrWhiteSpace(term))
-        {
-            var normalized = term.Trim().ToLower();
-            query = query.Where(m => EF.Functions.Like(m.Name.ToLower(), $"%{normalized}%"));
-        }
-
-        query = query.OrderBy(m => m.Name);
-        var items = await query.ToListAsync(cancellationToken);
-        return items;
-    }
-
-    public async Task<PagedResult<MenuItem>> GetPagedAsync(string? term, int page, int pageSize, CancellationToken cancellationToken)
+    public async Task<PagedResult<MenuItem>> GetPagedAsync(string? term, int pageIndex, int pageSize, CancellationToken cancellationToken)
     {
         var query = dbContext.Menu.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(term))
@@ -39,11 +25,11 @@ public sealed class MenuRepository(AppDbContext dbContext) : IMenuRepository
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query
-            .Skip((page - 1) * pageSize)
+            .Skip(pageIndex * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        return new PagedResult<MenuItem>(items, page, pageSize, total);
+        return new PagedResult<MenuItem>(items, pageIndex, pageSize, total);
     }
 
     public async Task AddAsync(MenuItem menuItem, CancellationToken cancellationToken)

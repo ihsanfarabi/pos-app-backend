@@ -9,7 +9,7 @@ public interface ITicketRepository
 
     Task<Ticket?> GetWithLinesAsync(Guid id, CancellationToken cancellationToken);
 
-    Task<PagedResult<Ticket>> GetPagedAsync(int page, int pageSize, CancellationToken cancellationToken);
+    Task<PagedResult<Ticket>> GetPagedAsync(int pageIndex, int pageSize, CancellationToken cancellationToken);
 
     Task AddAsync(Ticket ticket, CancellationToken cancellationToken);
 
