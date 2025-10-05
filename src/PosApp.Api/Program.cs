@@ -1,15 +1,10 @@
 using System.Text;
-using System.Text.Json;
-using FluentValidation;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using PosApp.Api.Endpoints;
 using PosApp.Application;
-using PosApp.Application.Validation;
 using PosApp.Infrastructure;
 using PosApp.Infrastructure.Persistence;
 

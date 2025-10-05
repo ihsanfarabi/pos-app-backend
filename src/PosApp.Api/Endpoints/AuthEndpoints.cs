@@ -3,10 +3,8 @@ using System.Security.Claims;
 using System.Text.Json.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
-using PosApp.Api.Extensions;
 using PosApp.Application.Abstractions.Security;
 using PosApp.Application.Contracts;
-using PosApp.Application.Exceptions;
 using PosApp.Application.Features.Auth.Commands;
 
 namespace PosApp.Api.Endpoints;

@@ -1,7 +1,7 @@
 using FluentValidation;
 using PosApp.Application.Contracts;
 
-namespace PosApp.Application.Validation;
+namespace PosApp.Application.Validations;
 
 public class CreateMenuItemDtoValidator : AbstractValidator<CreateMenuItemDto>
 {

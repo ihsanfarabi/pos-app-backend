@@ -1,7 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 using PosApp.Api.Contracts;
-using PosApp.Api.Extensions;
 using PosApp.Application.Contracts;
 using PosApp.Application.Exceptions;
 using PosApp.Application.Features.Menu;
