@@ -1,5 +1,6 @@
 using MediatR;
 using PosApp.Application.Abstractions.Persistence;
+using PosApp.Application.Exceptions;
 using PosApp.Domain.Exceptions;
 
 namespace PosApp.Application.Features.Tickets.Commands;
