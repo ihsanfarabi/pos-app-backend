@@ -59,7 +59,13 @@ app.UseExceptionHandler(handlerApp =>
                 problem.Status = StatusCodes.Status400BadRequest;
                 problem.Title = "Validation failed";
                 problem.Extensions["errors"] = fv.Errors
-                    .GroupBy(e => JsonNamingPolicy.CamelCase.ConvertName(e.PropertyName ?? "error"))
+                    .GroupBy(e =>
+                    {
+                        var raw = e.PropertyName ?? "error";
+                        var last = raw.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                      .LastOrDefault() ?? raw;
+                        return JsonNamingPolicy.CamelCase.ConvertName(last);
+                    })
                     .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
                 break;
             case PosApp.Application.Exceptions.ValidationException ve:
