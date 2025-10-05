@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.Extensions.Logging;
 using PosApp.Api.Contracts;
 using PosApp.Application.Contracts;
 using PosApp.Application.Features.Tickets;
@@ -64,7 +65,12 @@ public static class TicketEndpoints
         [AsParameters] TicketServices services,
         CancellationToken cancellationToken)
     {
+        services.Logger.LogInformation("Creating ticket");
+
         var id = await services.Sender.Send(new CreateTicketCommand(), cancellationToken);
+
+        services.Logger.LogInformation("Created ticket {TicketId}", id);
+
         return TypedResults.Created($"/api/tickets/{id}", new TicketCreatedResponse(id));
     }
 
@@ -73,10 +79,17 @@ public static class TicketEndpoints
         [AsParameters] TicketServices services,
         CancellationToken cancellationToken)
     {
+        services.Logger.LogInformation("Retrieving ticket {TicketId}", id);
+
         var ticket = await services.Sender.Send(new GetTicketDetailsQuery(id), cancellationToken);
-        return ticket is null
-            ? TypedResults.NotFound()
-            : TypedResults.Ok(ticket);
+        if (ticket is null)
+        {
+            services.Logger.LogWarning("Ticket {TicketId} not found", id);
+            return TypedResults.NotFound();
+        }
+
+        services.Logger.LogInformation("Found ticket {TicketId}", id);
+        return TypedResults.Ok(ticket);
     }
 
     private static async Task<Ok<PaginatedItems<TicketListItemResponse>>> GetTicketsAsync(
@@ -85,6 +98,11 @@ public static class TicketEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
+        services.Logger.LogInformation(
+            "Listing tickets page {PageIndex} size {PageSize}",
+            paginationRequest.PageIndex,
+            paginationRequest.PageSize);
+
         var queryDto = new TicketListQueryDto(paginationRequest.PageIndex, paginationRequest.PageSize);
         var result = await services.Sender.Send(new GetTicketsQuery(queryDto), cancellationToken);
         var response = new PaginatedItems<TicketListItemResponse>(
@@ -93,6 +111,12 @@ public static class TicketEndpoints
             result.TotalCount,
             result.Items);
         httpContext.Response.AddPaginationHeaders(result.PageIndex, result.PageSize, result.TotalCount);
+
+        services.Logger.LogInformation(
+            "Returning {ItemCount} tickets (total {TotalCount})",
+            result.Items.Count,
+            result.TotalCount);
+
         return TypedResults.Ok(response);
     }
 
@@ -102,7 +126,16 @@ public static class TicketEndpoints
         [AsParameters] TicketServices services,
         CancellationToken cancellationToken)
     {
+        services.Logger.LogInformation(
+            "Adding line to ticket {TicketId} with menu item {MenuItemId} qty {Quantity}",
+            id,
+            dto.MenuItemId,
+            dto.Qty);
+
         await services.Sender.Send(new AddTicketLineCommand(id, dto), cancellationToken);
+
+        services.Logger.LogInformation("Added line to ticket {TicketId}", id);
+
         return TypedResults.Created($"/api/tickets/{id}", new TicketLineCreatedResponse(id));
     }
 
@@ -111,7 +144,12 @@ public static class TicketEndpoints
         [AsParameters] TicketServices services,
         CancellationToken cancellationToken)
     {
+        services.Logger.LogInformation("Processing cash payment for ticket {TicketId}", id);
+
         var payment = await services.Sender.Send(new PayTicketCashCommand(id), cancellationToken);
+
+        services.Logger.LogInformation("Processed cash payment for ticket {TicketId}", id);
+
         return TypedResults.Ok(payment);
     }
 

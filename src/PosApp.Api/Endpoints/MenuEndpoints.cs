@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.Extensions.Logging;
 using PosApp.Api.Contracts;
 using PosApp.Application.Contracts;
 using PosApp.Application.Features.Menu;
@@ -63,6 +64,12 @@ public static class MenuEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
+        services.Logger.LogInformation(
+            "Listing menu items page {PageIndex} size {PageSize} query {Query}",
+            paginationRequest.PageIndex,
+            paginationRequest.PageSize,
+            q ?? string.Empty);
+
         var queryDto = new MenuQueryDto(q, paginationRequest.PageIndex, paginationRequest.PageSize);
         var result = await services.Sender.Send(new GetMenuItemsQuery(queryDto), cancellationToken);
         httpContext.Response.AddPaginationHeaders(result.PageIndex, result.PageSize, result.TotalCount);
@@ -72,6 +79,11 @@ public static class MenuEndpoints
             result.TotalCount,
             result.Items);
 
+        services.Logger.LogInformation(
+            "Returning {ItemCount} menu items (total {TotalCount})",
+            result.Items.Count,
+            result.TotalCount);
+
         return TypedResults.Ok(response);
     }
 
@@ -80,8 +92,13 @@ public static class MenuEndpoints
         CreateMenuItemDto dto,
         CancellationToken cancellationToken)
     {
+        services.Logger.LogInformation("Creating menu item {MenuItemName}", dto.Name);
+
         var id = await services.Sender.Send(new CreateMenuItemCommand(dto), cancellationToken);
         var response = new MenuItemCreatedResponse(id);
+
+        services.Logger.LogInformation("Created menu item {MenuItemId}", id);
+
         return TypedResults.Created($"/api/menu/{id}", response);
     }
 
@@ -91,7 +108,12 @@ public static class MenuEndpoints
         [AsParameters] MenuServices services,
         CancellationToken cancellationToken)
     {
+        services.Logger.LogInformation("Updating menu item {MenuItemId}", id);
+
         await services.Sender.Send(new UpdateMenuItemCommand(id, dto), cancellationToken);
+
+        services.Logger.LogInformation("Updated menu item {MenuItemId}", id);
+
         return TypedResults.Ok(new MenuItemUpdatedResponse(id));
     }
 
@@ -100,7 +122,12 @@ public static class MenuEndpoints
         [AsParameters] MenuServices services,
         CancellationToken cancellationToken)
     {
+        services.Logger.LogInformation("Deleting menu item {MenuItemId}", id);
+
         await services.Sender.Send(new DeleteMenuItemCommand(id), cancellationToken);
+
+        services.Logger.LogInformation("Deleted menu item {MenuItemId}", id);
+
         return TypedResults.NoContent();
     }
 

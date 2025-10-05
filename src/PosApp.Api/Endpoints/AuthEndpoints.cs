@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.Extensions.Logging;
 using PosApp.Application.Abstractions.Security;
 using PosApp.Application.Contracts;
 using PosApp.Application.Features.Auth.Commands;
@@ -66,8 +67,13 @@ public static class AuthEndpoints
         [AsParameters] AuthServices services,
         CancellationToken cancellationToken)
     {
-        var id = await services.Sender.Send(new RegisterUserCommand(dto), cancellationToken);
         var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+
+        services.Logger.LogInformation("Registering user with email {Email}", normalizedEmail);
+
+        var id = await services.Sender.Send(new RegisterUserCommand(dto), cancellationToken);
+
+        services.Logger.LogInformation("Registered user {UserId} with email {Email}", id, normalizedEmail);
         return TypedResults.Created($"/api/users/{id}", new UserRegisteredResponse(id, normalizedEmail));
     }
 
@@ -77,23 +83,30 @@ public static class AuthEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
+        services.Logger.LogInformation("Login attempt for email {Email}", dto.Email);
+
         var result = await services.Sender.Send(new LoginCommand(dto), cancellationToken);
         if (result is null)
         {
+            services.Logger.LogWarning("Login failed for email {Email}", dto.Email);
             return TypedResults.Unauthorized();
         }
 
         IssueRefreshCookie(httpContext, result.RefreshToken);
+        services.Logger.LogInformation("User {Email} authenticated", dto.Email);
         return TypedResults.Ok(new AuthTokensResponse(
             result.AccessToken.Token,
             "Bearer",
             result.AccessToken.ExpiresInSeconds));
     }
 
-    private static Results<Ok<CurrentUserResponse>, UnauthorizedHttpResult> MeAsync(ClaimsPrincipal user)
+    private static Results<Ok<CurrentUserResponse>, UnauthorizedHttpResult> MeAsync(
+        ClaimsPrincipal user,
+        [AsParameters] AuthServices services)
     {
         if (user?.Identity is null || !user.Identity.IsAuthenticated)
         {
+            services.Logger.LogWarning("Attempt to access /me without authentication");
             return TypedResults.Unauthorized();
         }
 
@@ -101,6 +114,7 @@ public static class AuthEndpoints
         var email = user.FindFirstValue(JwtRegisteredClaimNames.Email) ?? user.FindFirstValue(ClaimTypes.Email);
         var role = user.FindFirstValue(ClaimTypes.Role) ?? "user";
 
+        services.Logger.LogInformation("Returning profile for user {UserId}", id);
         return TypedResults.Ok(new CurrentUserResponse(id, email, role));
     }
 
@@ -109,25 +123,35 @@ public static class AuthEndpoints
         [AsParameters] AuthServices services,
         CancellationToken cancellationToken)
     {
+        services.Logger.LogInformation("Refreshing tokens for request");
+
         if (!httpContext.Request.Cookies.TryGetValue(RefreshTokenCookieName, out var refreshToken))
         {
+            services.Logger.LogWarning("Refresh token missing for request");
             return TypedResults.Unauthorized();
         }
         var result = await services.Sender.Send(new RefreshTokenCommand(refreshToken), cancellationToken);
         if (result is null)
         {
+            services.Logger.LogWarning("Refresh token invalid");
             return TypedResults.Unauthorized();
         }
 
         IssueRefreshCookie(httpContext, result.RefreshToken);
+        services.Logger.LogInformation("Issued refreshed tokens");
         return TypedResults.Ok(new AuthTokensResponse(
             result.AccessToken.Token,
             "Bearer",
             result.AccessToken.ExpiresInSeconds));
     }
 
-    private static NoContent Logout(HttpContext httpContext)
+    private static NoContent Logout(
+        HttpContext httpContext,
+        [AsParameters] AuthServices services)
     {
+        var userId = httpContext.User?.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? httpContext.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        services.Logger.LogInformation("Logging out user {UserId}", userId);
+
         httpContext.Response.Cookies.Append(RefreshTokenCookieName, string.Empty, new CookieOptions
         {
             HttpOnly = true,
@@ -137,6 +161,7 @@ public static class AuthEndpoints
             Path = "/"
         });
 
+        services.Logger.LogInformation("User logged out");
         return TypedResults.NoContent();
     }
 

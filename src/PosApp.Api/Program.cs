@@ -8,8 +8,15 @@ using PosApp.Api.Endpoints;
 using PosApp.Application;
 using PosApp.Infrastructure;
 using PosApp.Infrastructure.Persistence;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, services, loggerConfiguration) =>
+    loggerConfiguration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext());
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
