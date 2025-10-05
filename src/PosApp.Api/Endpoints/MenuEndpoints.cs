@@ -1,7 +1,4 @@
-using Asp.Versioning.Builder;
-using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
 using PosApp.Api.Contracts;
 using PosApp.Application.Contracts;
 using PosApp.Application.Features.Menu;

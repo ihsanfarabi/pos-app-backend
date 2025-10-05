@@ -3,7 +3,6 @@ using FluentValidation;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Contracts;
 using PosApp.Domain.Entities;
-using PosApp.Domain.Exceptions;
 
 namespace PosApp.Application.Features.Menu.Commands;
 

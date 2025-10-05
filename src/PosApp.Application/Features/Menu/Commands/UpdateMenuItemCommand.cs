@@ -1,7 +1,6 @@
 using MediatR;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Contracts;
-using PosApp.Domain.Exceptions;
 using FluentValidation;
 
 namespace PosApp.Application.Features.Menu.Commands;
