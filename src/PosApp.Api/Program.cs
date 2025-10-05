@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
@@ -41,6 +42,28 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost,
     KnownNetworks = { },
     KnownProxies = { }
+});
+
+// Global exception handling to map domain and not-found to ProblemDetails
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+        var statusCode = exception switch
+        {
+            PosApp.Domain.Exceptions.DomainException => StatusCodes.Status400BadRequest,
+            KeyNotFoundException => StatusCodes.Status404NotFound,
+            _ => StatusCodes.Status500InternalServerError
+        };
+
+        var problem = Results.Problem(
+            title: "An error occurred while processing your request.",
+            detail: exception?.Message,
+            statusCode: statusCode);
+
+        await problem.ExecuteAsync(context);
+    });
 });
 
 if (app.Environment.IsDevelopment())
