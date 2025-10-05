@@ -1,7 +1,9 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
+using Asp.Versioning.Builder;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using PosApp.Application.Abstractions.Security;
 using PosApp.Application.Contracts;
 using PosApp.Application.Features.Auth.Commands;
@@ -15,18 +17,48 @@ public static class AuthEndpoints
 
     public static RouteGroupBuilder MapAuthEndpoints(this IEndpointRouteBuilder routes)
     {
-        var group = routes.MapGroup("/api/auth");
+        var versionedApi = routes.NewVersionedApi("Auth");
+        var group = versionedApi
+            .MapGroup("/api/auth")
+            .HasApiVersion(1, 0)
+            .WithTags("Auth");
 
-        group.MapPost("/register", RegisterAsync);
+        group.MapPost("/register", RegisterAsync)
+            .WithName("RegisterUser")
+            .WithSummary("Register user")
+            .WithDescription("Register a new user account.")
+            .Produces<UserRegisteredResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
-        group.MapPost("/login", LoginAsync);
+        group.MapPost("/login", LoginAsync)
+            .WithName("LoginUser")
+            .WithSummary("Authenticate user")
+            .WithDescription("Authenticate a user with email and password.")
+            .Produces<AuthTokensResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
         group.MapGet("/me", MeAsync)
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .WithName("GetCurrentUser")
+            .WithSummary("Get current user")
+            .WithDescription("Retrieve details about the authenticated user.")
+            .Produces<CurrentUserResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapPost("/refresh", RefreshAsync);
+        group.MapPost("/refresh", RefreshAsync)
+            .WithName("RefreshTokens")
+            .WithSummary("Refresh access token")
+            .WithDescription("Exchange a refresh token for a new access token.")
+            .Produces<AuthTokensResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
-        group.MapPost("/logout", Logout);
+        group.MapPost("/logout", Logout)
+            .WithName("LogoutUser")
+            .WithSummary("Log out user")
+            .WithDescription("Invalidate the refresh token for the current user.")
+            .Produces(StatusCodes.Status204NoContent);
 
         return group;
     }

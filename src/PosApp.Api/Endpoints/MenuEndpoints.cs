@@ -1,5 +1,7 @@
+using Asp.Versioning.Builder;
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using PosApp.Api.Contracts;
 using PosApp.Application.Contracts;
 using PosApp.Application.Features.Menu;
@@ -14,19 +16,45 @@ public static class MenuEndpoints
 {
     public static RouteGroupBuilder MapMenuEndpoints(this IEndpointRouteBuilder routes)
     {
-        var group = routes.MapGroup("/api/menu")
-            .RequireAuthorization();
+        var versionedApi = routes.NewVersionedApi("Menu");
+        var group = versionedApi
+            .MapGroup("/api/menu")
+            .HasApiVersion(1, 0)
+            .RequireAuthorization()
+            .WithTags("Menu");
 
-        group.MapGet(string.Empty, GetMenuItemsAsync);
+        group.MapGet(string.Empty, GetMenuItemsAsync)
+            .WithName("ListMenuItems")
+            .WithSummary("List menu items")
+            .WithDescription("Retrieve a paginated list of menu items.")
+            .Produces<PaginatedItems<MenuItemResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
         group.MapPost(string.Empty, CreateMenuItemAsync)
-            .RequireAuthorization("Admin");
+            .RequireAuthorization("Admin")
+            .WithName("CreateMenuItem")
+            .WithSummary("Create menu item")
+            .WithDescription("Create a new menu item.")
+            .Produces<MenuItemCreatedResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
         group.MapPut("/{id:guid}", UpdateMenuItemAsync)
-            .RequireAuthorization("Admin");
+            .RequireAuthorization("Admin")
+            .WithName("UpdateMenuItem")
+            .WithSummary("Update menu item")
+            .WithDescription("Update an existing menu item.")
+            .Produces<MenuItemUpdatedResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapDelete("/{id:guid}", DeleteMenuItemAsync)
-            .RequireAuthorization("Admin");
+            .RequireAuthorization("Admin")
+            .WithName("DeleteMenuItem")
+            .WithSummary("Delete menu item")
+            .WithDescription("Delete an existing menu item.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         return group;
     }

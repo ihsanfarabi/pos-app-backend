@@ -1,7 +1,8 @@
 using System.Text;
-using Microsoft.AspNetCore.Diagnostics;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using PosApp.Api.Endpoints;
@@ -14,7 +15,45 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-builder.Services.AddProblemDetails();
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = context =>
+    {
+        context.ProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
+
+        if (context.Exception is null)
+        {
+            return;
+        }
+
+        context.ProblemDetails.Detail ??= context.Exception.Message;
+
+        switch (context.Exception)
+        {
+            case PosApp.Domain.Exceptions.DomainException:
+                context.ProblemDetails.Status ??= StatusCodes.Status400BadRequest;
+                context.ProblemDetails.Title ??= "Bad Request";
+                context.ProblemDetails.Type ??= "https://httpstatuses.com/400";
+                break;
+            case KeyNotFoundException:
+                context.ProblemDetails.Status ??= StatusCodes.Status404NotFound;
+                context.ProblemDetails.Title ??= "Not Found";
+                context.ProblemDetails.Type ??= "https://httpstatuses.com/404";
+                break;
+            default:
+                context.ProblemDetails.Status ??= StatusCodes.Status500InternalServerError;
+                context.ProblemDetails.Title ??= "Internal Server Error";
+                context.ProblemDetails.Type ??= "https://httpstatuses.com/500";
+                break;
+        }
+    };
+});
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+});
 
 var allowedOriginsCsv = builder.Configuration["AllowedOrigins"];
 var allowedOrigins = string.IsNullOrWhiteSpace(allowedOriginsCsv)
@@ -44,46 +83,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     KnownProxies = { }
 });
 
-// Global exception handling to map domain and not-found to ProblemDetails (RFC7807)
-app.UseExceptionHandler(errorApp =>
-{
-    errorApp.Run(async context =>
-    {
-        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
-        var statusCode = exception switch
-        {
-            PosApp.Domain.Exceptions.DomainException => StatusCodes.Status400BadRequest,
-            KeyNotFoundException => StatusCodes.Status404NotFound,
-            _ => StatusCodes.Status500InternalServerError
-        };
-
-        var type = statusCode switch
-        {
-            StatusCodes.Status400BadRequest => "https://httpstatuses.com/400",
-            StatusCodes.Status404NotFound => "https://httpstatuses.com/404",
-            _ => "https://httpstatuses.com/500"
-        };
-
-        var title = statusCode switch
-        {
-            StatusCodes.Status400BadRequest => "Bad Request",
-            StatusCodes.Status404NotFound => "Not Found",
-            _ => "Internal Server Error"
-        };
-
-        var problem = Results.Problem(
-            type: type,
-            title: title,
-            detail: exception?.Message,
-            statusCode: statusCode,
-            extensions: new Dictionary<string, object?>
-            {
-                ["traceId"] = context.TraceIdentifier
-            });
-
-        await problem.ExecuteAsync(context);
-    });
-});
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
