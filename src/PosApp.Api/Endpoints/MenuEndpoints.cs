@@ -16,15 +16,12 @@ public static class MenuEndpoints
         var group = routes.MapGroup("/api/menu")
             .RequireAuthorization();
 
-        group.MapGet(string.Empty, GetMenuItemsAsync)
-            .WithValidator<MenuQueryDto>();
+        group.MapGet(string.Empty, GetMenuItemsAsync);
 
         group.MapPost(string.Empty, CreateMenuItemAsync)
-            .WithValidator<CreateMenuItemDto>()
             .RequireAuthorization("Admin");
 
         group.MapPut("/{id:guid}", UpdateMenuItemAsync)
-            .WithValidator<UpdateMenuItemDto>()
             .RequireAuthorization("Admin");
 
         group.MapDelete("/{id:guid}", DeleteMenuItemAsync)
@@ -33,32 +30,25 @@ public static class MenuEndpoints
         return group;
     }
 
-    private static async Task<Results<Ok<IReadOnlyList<MenuItemResponse>>, Ok<MenuItemsPageResponse>, ValidationProblem>> GetMenuItemsAsync(
+    private static async Task<Results<Ok<IReadOnlyList<MenuItemResponse>>, Ok<MenuItemsPageResponse>>> GetMenuItemsAsync(
         [AsParameters] MenuQueryDto query,
         ISender sender,
         CancellationToken cancellationToken)
     {
-        try
+        var result = await sender.Send(new GetMenuItemsQuery(query), cancellationToken);
+        if (result.Pagination is null)
         {
-            var result = await sender.Send(new GetMenuItemsQuery(query), cancellationToken);
-            if (result.Pagination is null)
-            {
-                return TypedResults.Ok(result.Items);
-            }
-
-            var pagination = result.Pagination;
-            var response = new MenuItemsPageResponse(
-                result.Items,
-                pagination.Page,
-                pagination.PageSize,
-                pagination.Total);
-
-            return TypedResults.Ok(response);
+            return TypedResults.Ok(result.Items);
         }
-        catch (ValidationException ex)
-        {
-            return ValidationProblem(ex);
-        }
+
+        var pagination = result.Pagination;
+        var response = new MenuItemsPageResponse(
+            result.Items,
+            pagination.Page,
+            pagination.PageSize,
+            pagination.Total);
+
+        return TypedResults.Ok(response);
     }
 
     private static async Task<Created<MenuItemCreatedResponse>> CreateMenuItemAsync(
@@ -71,7 +61,7 @@ public static class MenuEndpoints
         return TypedResults.Created($"/api/menu/{id}", response);
     }
 
-    private static async Task<Results<Ok<MenuItemUpdatedResponse>, NotFound, ValidationProblem>> UpdateMenuItemAsync(
+    private static async Task<Results<Ok<MenuItemUpdatedResponse>, NotFound>> UpdateMenuItemAsync(
         Guid id,
         UpdateMenuItemDto dto,
         ISender sender,
@@ -86,10 +76,6 @@ public static class MenuEndpoints
         {
             return TypedResults.NotFound();
         }
-        catch (ValidationException ex)
-        {
-            return ValidationProblem(ex);
-        }
     }
 
     private static async Task<Results<NoContent, NotFound>> DeleteMenuItemAsync(
@@ -97,25 +83,18 @@ public static class MenuEndpoints
         ISender sender,
         CancellationToken cancellationToken)
     {
-        var deleted = await sender.Send(new DeleteMenuItemCommand(id), cancellationToken);
-        return deleted
-            ? TypedResults.NoContent()
-            : TypedResults.NotFound();
-    }
-
-    private static ValidationProblem ValidationProblem(ValidationException exception)
-    {
-        var key = string.IsNullOrWhiteSpace(exception.PropertyName)
-            ? "error"
-            : char.ToLowerInvariant(exception.PropertyName[0]) + exception.PropertyName[1..];
-
-        var payload = new Dictionary<string, string[]>
+        try
         {
-            [key] = new[] { exception.Message }
-        };
-
-        return TypedResults.ValidationProblem(payload);
+            await sender.Send(new DeleteMenuItemCommand(id), cancellationToken);
+            return TypedResults.NoContent();
+        }
+        catch (NotFoundException)
+        {
+            return TypedResults.NotFound();
+        }
     }
+
+    
 
     private sealed record MenuItemsPageResponse(
         IReadOnlyList<MenuItemResponse> Items,

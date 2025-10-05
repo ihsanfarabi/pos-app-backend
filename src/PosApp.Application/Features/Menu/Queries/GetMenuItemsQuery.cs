@@ -48,7 +48,7 @@ internal sealed class GetMenuItemsQueryHandler(IMenuRepository repository)
         var value = requested.Value;
         if (value <= 0)
         {
-            throw new ValidationException("PageSize must be greater than zero.", "pageSize");
+            return DefaultPageSize;
         }
 
         return Math.Min(value, MaxPageSize);

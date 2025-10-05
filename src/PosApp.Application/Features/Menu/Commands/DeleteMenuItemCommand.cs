@@ -1,23 +1,23 @@
 using MediatR;
 using PosApp.Application.Abstractions.Persistence;
+using PosApp.Application.Exceptions;
 
 namespace PosApp.Application.Features.Menu.Commands;
 
-public sealed record DeleteMenuItemCommand(Guid Id) : IRequest<bool>;
+public sealed record DeleteMenuItemCommand(Guid Id) : IRequest;
 
 internal sealed class DeleteMenuItemCommandHandler(IMenuRepository repository)
-    : IRequestHandler<DeleteMenuItemCommand, bool>
+    : IRequestHandler<DeleteMenuItemCommand>
 {
-    public async Task<bool> Handle(DeleteMenuItemCommand request, CancellationToken cancellationToken)
+    public async Task Handle(DeleteMenuItemCommand request, CancellationToken cancellationToken)
     {
         var menuItem = await repository.GetByIdAsync(request.Id, cancellationToken);
         if (menuItem is null)
         {
-            return false;
+            throw new NotFoundException("MenuItem", request.Id.ToString());
         }
 
         await repository.RemoveAsync(menuItem, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
-        return true;
     }
 }

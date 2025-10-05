@@ -1,4 +1,5 @@
 using MediatR;
+using FluentValidation;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Contracts;
 using PosApp.Application.Exceptions;
@@ -8,6 +9,19 @@ using PosApp.Domain.Exceptions;
 namespace PosApp.Application.Features.Menu.Commands;
 
 public sealed record CreateMenuItemCommand(CreateMenuItemDto Dto) : IRequest<Guid>;
+
+public sealed class CreateMenuItemCommandValidator : AbstractValidator<CreateMenuItemCommand>
+{
+    public CreateMenuItemCommandValidator()
+    {
+        RuleFor(x => x.Dto).NotNull();
+        RuleFor(x => x.Dto.Name)
+            .NotEmpty()
+            .MaximumLength(200);
+        RuleFor(x => x.Dto.Price)
+            .GreaterThan(0);
+    }
+}
 
 internal sealed class CreateMenuItemCommandHandler(IMenuRepository repository)
     : IRequestHandler<CreateMenuItemCommand, Guid>
@@ -23,7 +37,7 @@ internal sealed class CreateMenuItemCommandHandler(IMenuRepository repository)
         }
         catch (DomainException ex)
         {
-            throw new ValidationException(ex.Message, ex.PropertyName);
+            throw new PosApp.Application.Exceptions.ValidationException(ex.Message, ex.PropertyName);
         }
     }
 }

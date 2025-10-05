@@ -1,4 +1,5 @@
 using MediatR;
+using FluentValidation;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Contracts;
 using PosApp.Application.Exceptions;
@@ -7,6 +8,17 @@ using PosApp.Domain.Exceptions;
 namespace PosApp.Application.Features.Tickets.Commands;
 
 public sealed record AddTicketLineCommand(Guid TicketId, AddLineDto Dto) : IRequest;
+
+public sealed class AddTicketLineCommandValidator : AbstractValidator<AddTicketLineCommand>
+{
+    public AddTicketLineCommandValidator()
+    {
+        RuleFor(x => x.TicketId).NotEmpty();
+        RuleFor(x => x.Dto).NotNull();
+        RuleFor(x => x.Dto.MenuItemId).NotEmpty();
+        RuleFor(x => x.Dto.Qty).GreaterThan(0);
+    }
+}
 
 internal sealed class AddTicketLineCommandHandler(
     ITicketRepository ticketRepository,
@@ -24,7 +36,7 @@ internal sealed class AddTicketLineCommandHandler(
         var menuItem = await menuRepository.GetByIdAsync(request.Dto.MenuItemId, cancellationToken);
         if (menuItem is null)
         {
-            throw new ValidationException("Menu item not found.", "menuItemId");
+            throw new PosApp.Application.Exceptions.ValidationException("Menu item not found.", "menuItemId");
         }
 
         try
@@ -34,7 +46,7 @@ internal sealed class AddTicketLineCommandHandler(
         }
         catch (DomainException ex)
         {
-            throw new ValidationException(ex.Message, ex.PropertyName);
+            throw new PosApp.Application.Exceptions.ValidationException(ex.Message, ex.PropertyName);
         }
     }
 }

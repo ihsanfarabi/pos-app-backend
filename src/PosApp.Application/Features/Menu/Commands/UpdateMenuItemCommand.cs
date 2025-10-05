@@ -3,10 +3,25 @@ using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Contracts;
 using PosApp.Application.Exceptions;
 using PosApp.Domain.Exceptions;
+using FluentValidation;
 
 namespace PosApp.Application.Features.Menu.Commands;
 
 public sealed record UpdateMenuItemCommand(Guid Id, UpdateMenuItemDto Dto) : IRequest;
+
+public sealed class UpdateMenuItemCommandValidator : AbstractValidator<UpdateMenuItemCommand>
+{
+    public UpdateMenuItemCommandValidator()
+    {
+        RuleFor(x => x.Id).NotEmpty();
+        RuleFor(x => x.Dto).NotNull();
+        RuleFor(x => x.Dto.Name)
+            .NotEmpty()
+            .MaximumLength(200);
+        RuleFor(x => x.Dto.Price)
+            .GreaterThan(0);
+    }
+}
 
 internal sealed class UpdateMenuItemCommandHandler(IMenuRepository repository)
     : IRequestHandler<UpdateMenuItemCommand>
@@ -26,7 +41,7 @@ internal sealed class UpdateMenuItemCommandHandler(IMenuRepository repository)
         }
         catch (DomainException ex)
         {
-            throw new ValidationException(ex.Message, ex.PropertyName);
+            throw new PosApp.Application.Exceptions.ValidationException(ex.Message, ex.PropertyName);
         }
     }
 }

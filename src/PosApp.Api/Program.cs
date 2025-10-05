@@ -1,5 +1,8 @@
 using System.Text;
+using System.Text.Json;
 using FluentValidation;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
@@ -15,7 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-builder.Services.AddValidatorsFromAssemblyContaining<RegisterDtoValidator>();
+builder.Services.AddProblemDetails();
 
 var allowedOriginsCsv = builder.Configuration["AllowedOrigins"];
 var allowedOrigins = string.IsNullOrWhiteSpace(allowedOriginsCsv)
@@ -37,6 +40,56 @@ ConfigureSwagger(builder);
 var app = builder.Build();
 
 await DatabaseInitializer.InitialiseAsync(app.Services, app.Configuration);
+
+app.UseExceptionHandler(handlerApp =>
+{
+    handlerApp.Run(async context =>
+    {
+        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+
+        var problem = new ProblemDetails
+        {
+            Title = "An error occurred while processing your request."
+        };
+
+        switch (exception)
+        {
+            case FluentValidation.ValidationException fv:
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                problem.Status = StatusCodes.Status400BadRequest;
+                problem.Title = "Validation failed";
+                problem.Extensions["errors"] = fv.Errors
+                    .GroupBy(e => JsonNamingPolicy.CamelCase.ConvertName(e.PropertyName ?? "error"))
+                    .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
+                break;
+            case PosApp.Application.Exceptions.ValidationException ve:
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                problem.Status = StatusCodes.Status400BadRequest;
+                problem.Title = "Validation failed";
+                problem.Extensions["errors"] = new Dictionary<string, string[]>
+                {
+                    [string.IsNullOrWhiteSpace(ve.PropertyName)
+                        ? "error"
+                        : char.ToLowerInvariant(ve.PropertyName[0]) + ve.PropertyName[1..]] = new[] { ve.Message }
+                };
+                break;
+            case PosApp.Application.Exceptions.NotFoundException nf:
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+                problem.Status = StatusCodes.Status404NotFound;
+                problem.Title = "Resource not found";
+                problem.Detail = nf.Message;
+                break;
+            default:
+                context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                problem.Status = StatusCodes.Status500InternalServerError;
+                problem.Detail = exception?.Message;
+                break;
+        }
+
+        context.Response.ContentType = "application/problem+json";
+        await context.Response.WriteAsJsonAsync(problem);
+    });
+});
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {

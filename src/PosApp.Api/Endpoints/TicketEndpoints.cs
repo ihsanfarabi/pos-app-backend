@@ -18,10 +18,8 @@ public static class TicketEndpoints
 
         group.MapPost(string.Empty, CreateTicketAsync);
         group.MapGet("/{id:guid}", GetTicketAsync);
-        group.MapGet(string.Empty, GetTicketsAsync)
-            .WithValidator<TicketListQueryDto>();
-        group.MapPost("/{id:guid}/lines", AddTicketLineAsync)
-            .WithValidator<AddLineDto>();
+        group.MapGet(string.Empty, GetTicketsAsync);
+        group.MapPost("/{id:guid}/lines", AddTicketLineAsync);
         group.MapPost("/{id:guid}/pay/cash", PayTicketCashAsync);
 
         return group;
@@ -61,59 +59,23 @@ public static class TicketEndpoints
         return TypedResults.Ok(response);
     }
 
-    private static async Task<Results<Created<TicketLineCreatedResponse>, NotFound, ValidationProblem>> AddTicketLineAsync(
+    private static async Task<Created<TicketLineCreatedResponse>> AddTicketLineAsync(
         Guid id,
         AddLineDto dto,
         ISender sender,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            await sender.Send(new AddTicketLineCommand(id, dto), cancellationToken);
-            return TypedResults.Created($"/api/tickets/{id}", new TicketLineCreatedResponse(true));
-        }
-        catch (NotFoundException)
-        {
-            return TypedResults.NotFound();
-        }
-        catch (ValidationException ex)
-        {
-            return ValidationProblem(ex);
-        }
+        await sender.Send(new AddTicketLineCommand(id, dto), cancellationToken);
+        return TypedResults.Created($"/api/tickets/{id}", new TicketLineCreatedResponse(true));
     }
 
-    private static async Task<Results<Ok<TicketPaymentResponse>, NotFound, ValidationProblem>> PayTicketCashAsync(
+    private static async Task<Ok<TicketPaymentResponse>> PayTicketCashAsync(
         Guid id,
         ISender sender,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var payment = await sender.Send(new PayTicketCashCommand(id), cancellationToken);
-            return TypedResults.Ok(payment);
-        }
-        catch (NotFoundException)
-        {
-            return TypedResults.NotFound();
-        }
-        catch (ValidationException ex)
-        {
-            return ValidationProblem(ex);
-        }
-    }
-
-    private static ValidationProblem ValidationProblem(ValidationException exception)
-    {
-        var key = string.IsNullOrWhiteSpace(exception.PropertyName)
-            ? "error"
-            : char.ToLowerInvariant(exception.PropertyName[0]) + exception.PropertyName[1..];
-
-        var payload = new Dictionary<string, string[]>
-        {
-            [key] = new[] { exception.Message }
-        };
-
-        return TypedResults.ValidationProblem(payload);
+        var payment = await sender.Send(new PayTicketCashCommand(id), cancellationToken);
+        return TypedResults.Ok(payment);
     }
 
     private sealed record TicketCreatedResponse(Guid Id);

@@ -1,4 +1,5 @@
 using MediatR;
+using FluentValidation;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Abstractions.Security;
 using PosApp.Application.Contracts;
@@ -6,6 +7,19 @@ using PosApp.Application.Contracts;
 namespace PosApp.Application.Features.Auth.Commands;
 
 public sealed record LoginCommand(LoginDto Dto) : IRequest<LoginResult?>;
+
+public sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
+{
+    public LoginCommandValidator()
+    {
+        RuleFor(x => x.Dto.Email)
+            .NotEmpty()
+            .EmailAddress();
+
+        RuleFor(x => x.Dto.Password)
+            .NotEmpty();
+    }
+}
 
 internal sealed class LoginCommandHandler(
     IUserRepository userRepository,

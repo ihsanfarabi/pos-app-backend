@@ -19,11 +19,9 @@ public static class AuthEndpoints
     {
         var group = routes.MapGroup("/api/auth");
 
-        group.MapPost("/register", RegisterAsync)
-            .WithValidator<RegisterDto>();
+        group.MapPost("/register", RegisterAsync);
 
-        group.MapPost("/login", LoginAsync)
-            .WithValidator<LoginDto>();
+        group.MapPost("/login", LoginAsync);
 
         group.MapGet("/me", MeAsync)
             .RequireAuthorization();
@@ -35,47 +33,33 @@ public static class AuthEndpoints
         return group;
     }
 
-    private static async Task<Results<Created<UserRegisteredResponse>, ValidationProblem>> RegisterAsync(
+    private static async Task<Created<UserRegisteredResponse>> RegisterAsync(
         RegisterDto dto,
         ISender sender,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var id = await sender.Send(new RegisterUserCommand(dto), cancellationToken);
-            var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
-            return TypedResults.Created($"/api/users/{id}", new UserRegisteredResponse(id, normalizedEmail));
-        }
-        catch (ValidationException ex)
-        {
-            return ValidationProblem(ex);
-        }
+        var id = await sender.Send(new RegisterUserCommand(dto), cancellationToken);
+        var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+        return TypedResults.Created($"/api/users/{id}", new UserRegisteredResponse(id, normalizedEmail));
     }
 
-    private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult, ValidationProblem>> LoginAsync(
+    private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult>> LoginAsync(
         LoginDto dto,
         ISender sender,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        try
+        var result = await sender.Send(new LoginCommand(dto), cancellationToken);
+        if (result is null)
         {
-            var result = await sender.Send(new LoginCommand(dto), cancellationToken);
-            if (result is null)
-            {
-                return TypedResults.Unauthorized();
-            }
+            return TypedResults.Unauthorized();
+        }
 
-            IssueRefreshCookie(httpContext, result.RefreshToken);
-            return TypedResults.Ok(new AuthTokensResponse(
-                result.AccessToken.Token,
-                "Bearer",
-                result.AccessToken.ExpiresInSeconds));
-        }
-        catch (ValidationException ex)
-        {
-            return ValidationProblem(ex);
-        }
+        IssueRefreshCookie(httpContext, result.RefreshToken);
+        return TypedResults.Ok(new AuthTokensResponse(
+            result.AccessToken.Token,
+            "Bearer",
+            result.AccessToken.ExpiresInSeconds));
     }
 
     private static Results<Ok<CurrentUserResponse>, UnauthorizedHttpResult> MeAsync(ClaimsPrincipal user)
@@ -92,7 +76,7 @@ public static class AuthEndpoints
         return TypedResults.Ok(new CurrentUserResponse(id, email, role));
     }
 
-    private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult, ValidationProblem>> RefreshAsync(
+    private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult>> RefreshAsync(
         HttpContext httpContext,
         ISender sender,
         CancellationToken cancellationToken)
@@ -102,24 +86,17 @@ public static class AuthEndpoints
             return TypedResults.Unauthorized();
         }
 
-        try
+        var result = await sender.Send(new RefreshTokenCommand(refreshToken), cancellationToken);
+        if (result is null)
         {
-            var result = await sender.Send(new RefreshTokenCommand(refreshToken), cancellationToken);
-            if (result is null)
-            {
-                return TypedResults.Unauthorized();
-            }
+            return TypedResults.Unauthorized();
+        }
 
-            IssueRefreshCookie(httpContext, result.RefreshToken);
-            return TypedResults.Ok(new AuthTokensResponse(
-                result.AccessToken.Token,
-                "Bearer",
-                result.AccessToken.ExpiresInSeconds));
-        }
-        catch (ValidationException ex)
-        {
-            return ValidationProblem(ex);
-        }
+        IssueRefreshCookie(httpContext, result.RefreshToken);
+        return TypedResults.Ok(new AuthTokensResponse(
+            result.AccessToken.Token,
+            "Bearer",
+            result.AccessToken.ExpiresInSeconds));
     }
 
     private static NoContent Logout(HttpContext httpContext)
@@ -156,19 +133,7 @@ public static class AuthEndpoints
         return context.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment();
     }
 
-    private static ValidationProblem ValidationProblem(ValidationException exception)
-    {
-        var key = string.IsNullOrWhiteSpace(exception.PropertyName)
-            ? "error"
-            : char.ToLowerInvariant(exception.PropertyName[0]) + exception.PropertyName[1..];
-
-        var payload = new Dictionary<string, string[]>
-        {
-            [key] = new[] { exception.Message }
-        };
-
-        return TypedResults.ValidationProblem(payload);
-    }
+    
 
     private sealed record UserRegisteredResponse(Guid Id, string Email);
 

@@ -1,10 +1,20 @@
 using MediatR;
+using FluentValidation;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Abstractions.Security;
 
 namespace PosApp.Application.Features.Auth.Commands;
 
 public sealed record RefreshTokenCommand(string RefreshToken) : IRequest<LoginResult?>;
+
+public sealed class RefreshTokenCommandValidator : AbstractValidator<RefreshTokenCommand>
+{
+    public RefreshTokenCommandValidator()
+    {
+        RuleFor(x => x.RefreshToken)
+            .NotEmpty();
+    }
+}
 
 internal sealed class RefreshTokenCommandHandler(
     ITokenService tokenService,
