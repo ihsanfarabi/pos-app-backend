@@ -67,7 +67,7 @@ public static class TicketEndpoints
         CancellationToken cancellationToken)
     {
         await services.Sender.Send(new AddTicketLineCommand(id, dto), cancellationToken);
-        return TypedResults.Created($"/api/tickets/{id}", new TicketLineCreatedResponse(true));
+        return TypedResults.Created($"/api/tickets/{id}", new TicketLineCreatedResponse(id));
     }
 
     private static async Task<Results<Ok<TicketPaymentResponse>, NotFound, ProblemHttpResult>> PayTicketCashAsync(
@@ -81,5 +81,5 @@ public static class TicketEndpoints
 
     private sealed record TicketCreatedResponse(Guid Id);
 
-    private sealed record TicketLineCreatedResponse(bool Ok);
+    private sealed record TicketLineCreatedResponse(Guid TicketId);
 }
