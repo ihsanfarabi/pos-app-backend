@@ -27,16 +27,9 @@ internal sealed class CreateMenuItemCommandHandler(IMenuRepository repository)
 {
     public async Task<Guid> Handle(CreateMenuItemCommand request, CancellationToken cancellationToken)
     {
-        try
-        {
-            var menuItem = MenuItem.Create(request.Dto.Name, request.Dto.Price);
-            await repository.AddAsync(menuItem, cancellationToken);
-            await repository.SaveChangesAsync(cancellationToken);
-            return menuItem.Id;
-        }
-        catch (DomainException ex)
-        {
-            throw new PosApp.Application.Exceptions.ValidationException(ex.Message, ex.PropertyName);
-        }
+        var menuItem = MenuItem.Create(request.Dto.Name, request.Dto.Price);
+        await repository.AddAsync(menuItem, cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+        return menuItem.Id;
     }
 }

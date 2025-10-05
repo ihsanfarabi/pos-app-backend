@@ -1,6 +1,5 @@
 using MediatR;
 using PosApp.Application.Abstractions.Persistence;
-using PosApp.Application.Exceptions;
 using PosApp.Domain.Exceptions;
 
 namespace PosApp.Application.Features.Tickets.Commands;
@@ -18,15 +17,8 @@ internal sealed class PayTicketCashCommandHandler(ITicketRepository ticketReposi
             throw new NotFoundException("Ticket", request.TicketId.ToString());
         }
 
-        try
-        {
-            ticket.PayCash();
-            await ticketRepository.SaveChangesAsync(cancellationToken);
-        }
-        catch (DomainException ex)
-        {
-            throw new ValidationException(ex.Message, ex.PropertyName);
-        }
+        ticket.PayCash();
+        await ticketRepository.SaveChangesAsync(cancellationToken);
 
         var total = ticket.GetTotal();
         return new TicketPaymentResponse(ticket.Id, ticket.Status.ToString(), total);

@@ -2,7 +2,6 @@ using MediatR;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Abstractions.Security;
 using PosApp.Application.Contracts;
-using PosApp.Application.Exceptions;
 using PosApp.Domain.Entities;
 using PosApp.Domain.Exceptions;
 
@@ -21,7 +20,7 @@ internal sealed class RegisterUserCommandHandler(
         var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
         if (await userRepository.EmailExistsAsync(normalizedEmail, cancellationToken))
         {
-            throw new ValidationException("Email already registered.", "email");
+            throw new DomainException("Email already registered.", "email");
         }
 
         var role = string.IsNullOrWhiteSpace(dto.Role) ? UserRoles.User : dto.Role.Trim();
@@ -31,9 +30,9 @@ internal sealed class RegisterUserCommandHandler(
         {
             user = User.Create(normalizedEmail, role);
         }
-        catch (DomainException ex)
+        catch (DomainException)
         {
-            throw new ValidationException(ex.Message, ex.PropertyName);
+            throw;
         }
 
         var passwordHash = passwordHasher.HashPassword(user, dto.Password);
