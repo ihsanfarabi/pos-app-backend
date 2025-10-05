@@ -35,9 +35,18 @@ public static class ValidationExtensions
         });
     }
 
-    private static Dictionary<string, string[]> ToDictionary(this ValidationResult result)
+    public static Dictionary<string, string[]> ToDictionary(this ValidationResult result)
     {
         return result.Errors
+            .GroupBy(error => error.PropertyName)
+            .ToDictionary(
+                group => JsonNamingPolicy.CamelCase.ConvertName(group.Key),
+                group => group.Select(error => error.ErrorMessage).ToArray());
+    }
+
+    public static Dictionary<string, string[]> ToDictionary(this IEnumerable<ValidationFailure> errors)
+    {
+        return errors
             .GroupBy(error => error.PropertyName)
             .ToDictionary(
                 group => JsonNamingPolicy.CamelCase.ConvertName(group.Key),
