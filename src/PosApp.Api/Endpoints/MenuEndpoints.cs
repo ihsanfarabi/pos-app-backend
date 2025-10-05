@@ -47,7 +47,7 @@ public static class MenuEndpoints
         return TypedResults.Ok(response);
     }
 
-    private static async Task<Created<MenuItemCreatedResponse>> CreateMenuItemAsync(
+    private static async Task<Results<Created<MenuItemCreatedResponse>, ProblemHttpResult>> CreateMenuItemAsync(
         [AsParameters] MenuServices services,
         CreateMenuItemDto dto,
         CancellationToken cancellationToken)
@@ -57,37 +57,23 @@ public static class MenuEndpoints
         return TypedResults.Created($"/api/menu/{id}", response);
     }
 
-    private static async Task<Results<Ok<MenuItemUpdatedResponse>, NotFound>> UpdateMenuItemAsync(
+    private static async Task<Results<Ok<MenuItemUpdatedResponse>, NotFound, ProblemHttpResult>> UpdateMenuItemAsync(
         Guid id,
         UpdateMenuItemDto dto,
         [AsParameters] MenuServices services,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            await services.Sender.Send(new UpdateMenuItemCommand(id, dto), cancellationToken);
-            return TypedResults.Ok(new MenuItemUpdatedResponse(id));
-        }
-        catch (KeyNotFoundException)
-        {
-            return TypedResults.NotFound();
-        }
+        await services.Sender.Send(new UpdateMenuItemCommand(id, dto), cancellationToken);
+        return TypedResults.Ok(new MenuItemUpdatedResponse(id));
     }
 
-    private static async Task<Results<NoContent, NotFound>> DeleteMenuItemAsync(
+    private static async Task<Results<NoContent, NotFound, ProblemHttpResult>> DeleteMenuItemAsync(
         Guid id,
         [AsParameters] MenuServices services,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            await services.Sender.Send(new DeleteMenuItemCommand(id), cancellationToken);
-            return TypedResults.NoContent();
-        }
-        catch (KeyNotFoundException)
-        {
-            return TypedResults.NotFound();
-        }
+        await services.Sender.Send(new DeleteMenuItemCommand(id), cancellationToken);
+        return TypedResults.NoContent();
     }
 
     private sealed record MenuItemCreatedResponse(Guid Id);

@@ -25,7 +25,7 @@ public static class TicketEndpoints
         return group;
     }
 
-    private static async Task<Created<TicketCreatedResponse>> CreateTicketAsync(
+    private static async Task<Results<Created<TicketCreatedResponse>, ProblemHttpResult>> CreateTicketAsync(
         [AsParameters] TicketServices services,
         CancellationToken cancellationToken)
     {
@@ -60,37 +60,23 @@ public static class TicketEndpoints
         return TypedResults.Ok(response);
     }
 
-    private static async Task<Results<Created<TicketLineCreatedResponse>, NotFound>> AddTicketLineAsync(
+    private static async Task<Results<Created<TicketLineCreatedResponse>, NotFound, ProblemHttpResult>> AddTicketLineAsync(
         Guid id,
         AddLineDto dto,
         [AsParameters] TicketServices services,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            await services.Sender.Send(new AddTicketLineCommand(id, dto), cancellationToken);
-            return TypedResults.Created($"/api/tickets/{id}", new TicketLineCreatedResponse(true));
-        }
-        catch (KeyNotFoundException)
-        {
-            return TypedResults.NotFound();
-        }
+        await services.Sender.Send(new AddTicketLineCommand(id, dto), cancellationToken);
+        return TypedResults.Created($"/api/tickets/{id}", new TicketLineCreatedResponse(true));
     }
 
-    private static async Task<Results<Ok<TicketPaymentResponse>, NotFound>> PayTicketCashAsync(
+    private static async Task<Results<Ok<TicketPaymentResponse>, NotFound, ProblemHttpResult>> PayTicketCashAsync(
         Guid id,
         [AsParameters] TicketServices services,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var payment = await services.Sender.Send(new PayTicketCashCommand(id), cancellationToken);
-            return TypedResults.Ok(payment);
-        }
-        catch (KeyNotFoundException)
-        {
-            return TypedResults.NotFound();
-        }
+        var payment = await services.Sender.Send(new PayTicketCashCommand(id), cancellationToken);
+        return TypedResults.Ok(payment);
     }
 
     private sealed record TicketCreatedResponse(Guid Id);

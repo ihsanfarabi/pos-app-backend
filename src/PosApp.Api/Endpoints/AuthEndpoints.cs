@@ -31,7 +31,7 @@ public static class AuthEndpoints
         return group;
     }
 
-    private static async Task<Created<UserRegisteredResponse>> RegisterAsync(
+    private static async Task<Results<Created<UserRegisteredResponse>, ProblemHttpResult>> RegisterAsync(
         RegisterDto dto,
         [AsParameters] AuthServices services,
         CancellationToken cancellationToken)
@@ -41,7 +41,7 @@ public static class AuthEndpoints
         return TypedResults.Created($"/api/users/{id}", new UserRegisteredResponse(id, normalizedEmail));
     }
 
-    private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult>> LoginAsync(
+    private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult, ProblemHttpResult>> LoginAsync(
         LoginDto dto,
         [AsParameters] AuthServices services,
         HttpContext httpContext,
@@ -74,7 +74,7 @@ public static class AuthEndpoints
         return TypedResults.Ok(new CurrentUserResponse(id, email, role));
     }
 
-    private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult>> RefreshAsync(
+    private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult, ProblemHttpResult>> RefreshAsync(
         HttpContext httpContext,
         [AsParameters] AuthServices services,
         CancellationToken cancellationToken)
