@@ -2,7 +2,6 @@ using MediatR;
 using FluentValidation;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Contracts;
-using PosApp.Application.Exceptions;
 using PosApp.Domain.Exceptions;
 
 namespace PosApp.Application.Features.Tickets.Commands;
@@ -30,7 +29,7 @@ internal sealed class AddTicketLineCommandHandler(
         var ticket = await ticketRepository.GetWithLinesAsync(request.TicketId, cancellationToken);
         if (ticket is null)
         {
-            throw new NotFoundException("Ticket", request.TicketId.ToString());
+            throw new KeyNotFoundException();
         }
 
         var menuItem = await menuRepository.GetByIdAsync(request.Dto.MenuItemId, cancellationToken);

@@ -1,7 +1,6 @@
 using MediatR;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Contracts;
-using PosApp.Application.Exceptions;
 using PosApp.Domain.Exceptions;
 using FluentValidation;
 
@@ -31,7 +30,7 @@ internal sealed class UpdateMenuItemCommandHandler(IMenuRepository repository)
         var menuItem = await repository.GetByIdAsync(request.Id, cancellationToken);
         if (menuItem is null)
         {
-            throw new NotFoundException("MenuItem", request.Id.ToString());
+            throw new KeyNotFoundException();
         }
 
         menuItem.Update(request.Dto.Name, request.Dto.Price);

@@ -2,7 +2,6 @@ using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 using PosApp.Api.Contracts;
 using PosApp.Application.Contracts;
-using PosApp.Application.Exceptions;
 using PosApp.Application.Features.Menu;
 using PosApp.Application.Features.Menu.Commands;
 using PosApp.Application.Features.Menu.Queries;
@@ -68,7 +67,7 @@ public static class MenuEndpoints
             await sender.Send(new UpdateMenuItemCommand(id, dto), cancellationToken);
             return TypedResults.Ok(new MenuItemUpdatedResponse(id));
         }
-        catch (NotFoundException)
+        catch (KeyNotFoundException)
         {
             return TypedResults.NotFound();
         }
@@ -84,7 +83,7 @@ public static class MenuEndpoints
             await sender.Send(new DeleteMenuItemCommand(id), cancellationToken);
             return TypedResults.NoContent();
         }
-        catch (NotFoundException)
+        catch (KeyNotFoundException)
         {
             return TypedResults.NotFound();
         }

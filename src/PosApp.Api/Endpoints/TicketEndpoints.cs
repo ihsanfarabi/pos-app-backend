@@ -2,7 +2,6 @@ using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 using PosApp.Api.Contracts;
 using PosApp.Application.Contracts;
-using PosApp.Application.Exceptions;
 using PosApp.Application.Features.Tickets;
 using PosApp.Application.Features.Tickets.Commands;
 using PosApp.Application.Features.Tickets.Queries;
@@ -71,7 +70,7 @@ public static class TicketEndpoints
             await sender.Send(new AddTicketLineCommand(id, dto), cancellationToken);
             return TypedResults.Created($"/api/tickets/{id}", new TicketLineCreatedResponse(true));
         }
-        catch (NotFoundException)
+        catch (KeyNotFoundException)
         {
             return TypedResults.NotFound();
         }
@@ -87,7 +86,7 @@ public static class TicketEndpoints
             var payment = await sender.Send(new PayTicketCashCommand(id), cancellationToken);
             return TypedResults.Ok(payment);
         }
-        catch (NotFoundException)
+        catch (KeyNotFoundException)
         {
             return TypedResults.NotFound();
         }

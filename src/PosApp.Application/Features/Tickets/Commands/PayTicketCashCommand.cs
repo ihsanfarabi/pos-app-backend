@@ -1,6 +1,5 @@
 using MediatR;
 using PosApp.Application.Abstractions.Persistence;
-using PosApp.Application.Exceptions;
 using PosApp.Domain.Exceptions;
 
 namespace PosApp.Application.Features.Tickets.Commands;
@@ -15,7 +14,7 @@ internal sealed class PayTicketCashCommandHandler(ITicketRepository ticketReposi
         var ticket = await ticketRepository.GetWithLinesAsync(request.TicketId, cancellationToken);
         if (ticket is null)
         {
-            throw new NotFoundException("Ticket", request.TicketId.ToString());
+            throw new KeyNotFoundException();
         }
 
         ticket.PayCash();

@@ -1,6 +1,5 @@
 using MediatR;
 using PosApp.Application.Abstractions.Persistence;
-using PosApp.Application.Exceptions;
 
 namespace PosApp.Application.Features.Menu.Commands;
 
@@ -14,7 +13,7 @@ internal sealed class DeleteMenuItemCommandHandler(IMenuRepository repository)
         var menuItem = await repository.GetByIdAsync(request.Id, cancellationToken);
         if (menuItem is null)
         {
-            throw new NotFoundException("MenuItem", request.Id.ToString());
+            throw new KeyNotFoundException();
         }
 
         await repository.RemoveAsync(menuItem, cancellationToken);
