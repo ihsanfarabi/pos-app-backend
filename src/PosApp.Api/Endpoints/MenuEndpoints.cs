@@ -60,7 +60,7 @@ public static class MenuEndpoints
         return TypedResults.Created($"/api/menu/{id}", response);
     }
 
-    private static async Task<Results<Ok<MenuItemUpdatedResponse>, NotFound, ProblemHttpResult>> UpdateMenuItemAsync(
+    private static async Task<Results<Ok<MenuItemUpdatedResponse>, ProblemHttpResult>> UpdateMenuItemAsync(
         Guid id,
         UpdateMenuItemDto dto,
         [AsParameters] MenuServices services,
@@ -70,7 +70,7 @@ public static class MenuEndpoints
         return TypedResults.Ok(new MenuItemUpdatedResponse(id));
     }
 
-    private static async Task<Results<NoContent, NotFound, ProblemHttpResult>> DeleteMenuItemAsync(
+    private static async Task<Results<NoContent, ProblemHttpResult>> DeleteMenuItemAsync(
         Guid id,
         [AsParameters] MenuServices services,
         CancellationToken cancellationToken)

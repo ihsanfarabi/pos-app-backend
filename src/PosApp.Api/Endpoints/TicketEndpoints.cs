@@ -62,7 +62,7 @@ public static class TicketEndpoints
         return TypedResults.Ok(response);
     }
 
-    private static async Task<Results<Created<TicketLineCreatedResponse>, NotFound, ProblemHttpResult>> AddTicketLineAsync(
+    private static async Task<Results<Created<TicketLineCreatedResponse>, ProblemHttpResult>> AddTicketLineAsync(
         Guid id,
         AddLineDto dto,
         [AsParameters] TicketServices services,
@@ -72,7 +72,7 @@ public static class TicketEndpoints
         return TypedResults.Created($"/api/tickets/{id}", new TicketLineCreatedResponse(id));
     }
 
-    private static async Task<Results<Ok<TicketPaymentResponse>, NotFound, ProblemHttpResult>> PayTicketCashAsync(
+    private static async Task<Results<Ok<TicketPaymentResponse>, ProblemHttpResult>> PayTicketCashAsync(
         Guid id,
         [AsParameters] TicketServices services,
         CancellationToken cancellationToken)
