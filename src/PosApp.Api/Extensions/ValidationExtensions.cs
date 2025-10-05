@@ -1,11 +1,6 @@
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.Json;
 using FluentValidation;
 using FluentValidation.Results;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace PosApp.Api.Extensions;
 

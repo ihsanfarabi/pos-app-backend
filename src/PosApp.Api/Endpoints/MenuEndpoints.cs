@@ -1,11 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
 using MediatR;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Routing;
 using PosApp.Api.Extensions;
 using PosApp.Application.Contracts;
 using PosApp.Application.Exceptions;

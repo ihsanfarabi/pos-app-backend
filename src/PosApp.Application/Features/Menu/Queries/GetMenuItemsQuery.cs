@@ -3,7 +3,6 @@ using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Common;
 using PosApp.Application.Contracts;
 using PosApp.Application.Exceptions;
-using PosApp.Application.Features.Menu;
 using PosApp.Domain.Entities;
 
 namespace PosApp.Application.Features.Menu.Queries;

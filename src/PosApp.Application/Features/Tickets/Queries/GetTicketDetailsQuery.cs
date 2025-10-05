@@ -1,6 +1,5 @@
 using MediatR;
 using PosApp.Application.Abstractions.Persistence;
-using PosApp.Application.Features.Tickets;
 
 namespace PosApp.Application.Features.Tickets.Queries;
 

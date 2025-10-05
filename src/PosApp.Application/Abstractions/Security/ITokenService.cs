@@ -1,5 +1,3 @@
-using System.Security.Claims;
-using System;
 using PosApp.Domain.Entities;
 
 namespace PosApp.Application.Abstractions.Security;

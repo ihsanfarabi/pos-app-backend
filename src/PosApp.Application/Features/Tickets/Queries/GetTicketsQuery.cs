@@ -3,7 +3,6 @@ using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Common;
 using PosApp.Application.Contracts;
 using PosApp.Application.Exceptions;
-using PosApp.Application.Features.Tickets;
 
 namespace PosApp.Application.Features.Tickets.Queries;
 

@@ -2,7 +2,6 @@ using MediatR;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Abstractions.Security;
 using PosApp.Application.Contracts;
-using PosApp.Application.Features.Auth;
 
 namespace PosApp.Application.Features.Auth.Commands;
 
