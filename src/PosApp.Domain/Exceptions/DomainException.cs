@@ -8,5 +8,11 @@ public class DomainException : Exception
         PropertyName = propertyName;
     }
 
+    public DomainException(string message, Exception innerException, string? propertyName = null)
+        : base(message, innerException)
+    {
+        PropertyName = propertyName;
+    }
+
     public string? PropertyName { get; }
 }

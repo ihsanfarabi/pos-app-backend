@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using PosApp.Domain.Exceptions;
 
 namespace PosApp.Application.Behaviors;
 
@@ -27,7 +28,8 @@ public sealed class ValidatorBehavior<TRequest, TResponse>(
         if (failures.Count != 0)
         {
             logger.LogWarning("Validation errors - {RequestName} - Errors: {@ValidationErrors}", typeName, failures);
-            throw new ValidationException(failures);
+            var inner = new ValidationException("Validation exception", failures);
+            throw new DomainException($"Command Validation Errors for type {typeof(TRequest).Name}", inner);
         }
 
         return await next();

@@ -2,7 +2,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using MediatR;
-using FluentValidation;
 using Microsoft.AspNetCore.Http.HttpResults;
 using PosApp.Api.Extensions;
 using PosApp.Application.Abstractions.Security;
@@ -34,59 +33,33 @@ public static class AuthEndpoints
         return group;
     }
 
-    private static async Task<Results<Created<UserRegisteredResponse>, ValidationProblem>> RegisterAsync(
+    private static async Task<Created<UserRegisteredResponse>> RegisterAsync(
         RegisterDto dto,
         ISender sender,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var id = await sender.Send(new RegisterUserCommand(dto), cancellationToken);
-            var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
-            return TypedResults.Created($"/api/users/{id}", new UserRegisteredResponse(id, normalizedEmail));
-        }
-        catch (ValidationException ve)
-        {
-            return TypedResults.ValidationProblem(ve.Errors.ToDictionary(), statusCode: StatusCodes.Status400BadRequest);
-        }
-        catch (PosApp.Application.Exceptions.ValidationException ve)
-        {
-            var key = string.IsNullOrWhiteSpace(ve.PropertyName) ? "error" : char.ToLowerInvariant(ve.PropertyName[0]) + ve.PropertyName[1..];
-            var errors = new Dictionary<string, string[]> { [key] = new[] { ve.Message } };
-            return TypedResults.ValidationProblem(errors, statusCode: StatusCodes.Status400BadRequest);
-        }
+        var id = await sender.Send(new RegisterUserCommand(dto), cancellationToken);
+        var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+        return TypedResults.Created($"/api/users/{id}", new UserRegisteredResponse(id, normalizedEmail));
     }
 
-    private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult, ValidationProblem>> LoginAsync(
+    private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult>> LoginAsync(
         LoginDto dto,
         ISender sender,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        try
+        var result = await sender.Send(new LoginCommand(dto), cancellationToken);
+        if (result is null)
         {
-            var result = await sender.Send(new LoginCommand(dto), cancellationToken);
-            if (result is null)
-            {
-                return TypedResults.Unauthorized();
-            }
+            return TypedResults.Unauthorized();
+        }
 
-            IssueRefreshCookie(httpContext, result.RefreshToken);
-            return TypedResults.Ok(new AuthTokensResponse(
-                result.AccessToken.Token,
-                "Bearer",
-                result.AccessToken.ExpiresInSeconds));
-        }
-        catch (ValidationException ve)
-        {
-            return TypedResults.ValidationProblem(ve.Errors.ToDictionary(), statusCode: StatusCodes.Status400BadRequest);
-        }
-        catch (PosApp.Application.Exceptions.ValidationException ve)
-        {
-            var key = string.IsNullOrWhiteSpace(ve.PropertyName) ? "error" : char.ToLowerInvariant(ve.PropertyName[0]) + ve.PropertyName[1..];
-            var errors = new Dictionary<string, string[]> { [key] = new[] { ve.Message } };
-            return TypedResults.ValidationProblem(errors, statusCode: StatusCodes.Status400BadRequest);
-        }
+        IssueRefreshCookie(httpContext, result.RefreshToken);
+        return TypedResults.Ok(new AuthTokensResponse(
+            result.AccessToken.Token,
+            "Bearer",
+            result.AccessToken.ExpiresInSeconds));
     }
 
     private static Results<Ok<CurrentUserResponse>, UnauthorizedHttpResult> MeAsync(ClaimsPrincipal user)
@@ -103,7 +76,7 @@ public static class AuthEndpoints
         return TypedResults.Ok(new CurrentUserResponse(id, email, role));
     }
 
-    private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult, ValidationProblem>> RefreshAsync(
+    private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult>> RefreshAsync(
         HttpContext httpContext,
         ISender sender,
         CancellationToken cancellationToken)
@@ -112,31 +85,17 @@ public static class AuthEndpoints
         {
             return TypedResults.Unauthorized();
         }
+        var result = await sender.Send(new RefreshTokenCommand(refreshToken), cancellationToken);
+        if (result is null)
+        {
+            return TypedResults.Unauthorized();
+        }
 
-        try
-        {
-            var result = await sender.Send(new RefreshTokenCommand(refreshToken), cancellationToken);
-            if (result is null)
-            {
-                return TypedResults.Unauthorized();
-            }
-
-            IssueRefreshCookie(httpContext, result.RefreshToken);
-            return TypedResults.Ok(new AuthTokensResponse(
-                result.AccessToken.Token,
-                "Bearer",
-                result.AccessToken.ExpiresInSeconds));
-        }
-        catch (ValidationException ve)
-        {
-            return TypedResults.ValidationProblem(ve.Errors.ToDictionary(), statusCode: StatusCodes.Status400BadRequest);
-        }
-        catch (PosApp.Application.Exceptions.ValidationException ve)
-        {
-            var key = string.IsNullOrWhiteSpace(ve.PropertyName) ? "error" : char.ToLowerInvariant(ve.PropertyName[0]) + ve.PropertyName[1..];
-            var errors = new Dictionary<string, string[]> { [key] = new[] { ve.Message } };
-            return TypedResults.ValidationProblem(errors, statusCode: StatusCodes.Status400BadRequest);
-        }
+        IssueRefreshCookie(httpContext, result.RefreshToken);
+        return TypedResults.Ok(new AuthTokensResponse(
+            result.AccessToken.Token,
+            "Bearer",
+            result.AccessToken.ExpiresInSeconds));
     }
 
     private static NoContent Logout(HttpContext httpContext)
