@@ -21,7 +21,7 @@ public sealed class CreateMenuItemCommandValidator : AbstractValidator<CreateMen
     }
 }
 
-internal sealed class CreateMenuItemCommandHandler(IMenuRepository repository)
+public class CreateMenuItemCommandHandler(IMenuRepository repository)
     : IRequestHandler<CreateMenuItemCommand, Guid>
 {
     public async Task<Guid> Handle(CreateMenuItemCommand request, CancellationToken cancellationToken)

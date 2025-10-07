@@ -5,7 +5,7 @@ namespace PosApp.Application.Features.Menu.Commands;
 
 public sealed record DeleteMenuItemCommand(Guid Id) : IRequest;
 
-internal sealed class DeleteMenuItemCommandHandler(IMenuRepository repository)
+public class DeleteMenuItemCommandHandler(IMenuRepository repository)
     : IRequestHandler<DeleteMenuItemCommand>
 {
     public async Task Handle(DeleteMenuItemCommand request, CancellationToken cancellationToken)

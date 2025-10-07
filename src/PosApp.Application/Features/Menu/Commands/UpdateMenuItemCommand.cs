@@ -21,7 +21,7 @@ public sealed class UpdateMenuItemCommandValidator : AbstractValidator<UpdateMen
     }
 }
 
-internal sealed class UpdateMenuItemCommandHandler(IMenuRepository repository)
+public class UpdateMenuItemCommandHandler(IMenuRepository repository)
     : IRequestHandler<UpdateMenuItemCommand>
 {
     public async Task Handle(UpdateMenuItemCommand request, CancellationToken cancellationToken)

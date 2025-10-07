@@ -16,7 +16,7 @@ public sealed class RefreshTokenCommandValidator : AbstractValidator<RefreshToke
     }
 }
 
-internal sealed class RefreshTokenCommandHandler(
+public class RefreshTokenCommandHandler(
     ITokenService tokenService,
     IUserRepository userRepository)
     : IRequestHandler<RefreshTokenCommand, LoginResult?>

@@ -6,7 +6,7 @@ namespace PosApp.Application.Features.Tickets.Commands;
 
 public sealed record CreateTicketCommand() : IRequest<Guid>;
 
-internal sealed class CreateTicketCommandHandler(ITicketRepository ticketRepository)
+public class CreateTicketCommandHandler(ITicketRepository ticketRepository)
     : IRequestHandler<CreateTicketCommand, Guid>
 {
     public async Task<Guid> Handle(CreateTicketCommand request, CancellationToken cancellationToken)

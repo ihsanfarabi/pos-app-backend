@@ -9,7 +9,7 @@ namespace PosApp.Application.Features.Auth.Commands;
 
 public sealed record RegisterUserCommand(RegisterDto Dto) : IRequest<Guid>;
 
-internal sealed class RegisterUserCommandHandler(
+public class RegisterUserCommandHandler(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher)
     : IRequestHandler<RegisterUserCommand, Guid>

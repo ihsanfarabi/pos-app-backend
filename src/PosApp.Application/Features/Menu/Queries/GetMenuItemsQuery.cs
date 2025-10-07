@@ -8,7 +8,7 @@ namespace PosApp.Application.Features.Menu.Queries;
 
 public sealed record GetMenuItemsQuery(MenuQueryDto Query) : IRequest<PagedResult<MenuItemResponse>>;
 
-internal sealed class GetMenuItemsQueryHandler(IMenuRepository repository)
+public class GetMenuItemsQueryHandler(IMenuRepository repository)
     : IRequestHandler<GetMenuItemsQuery, PagedResult<MenuItemResponse>>
 {
     private const int DefaultPageSize = 20;

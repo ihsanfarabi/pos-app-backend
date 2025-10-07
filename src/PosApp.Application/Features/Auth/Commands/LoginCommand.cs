@@ -21,7 +21,7 @@ public sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
     }
 }
 
-internal sealed class LoginCommandHandler(
+public class LoginCommandHandler(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher,
     ITokenService tokenService)

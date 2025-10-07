@@ -19,7 +19,7 @@ public sealed class AddTicketLineCommandValidator : AbstractValidator<AddTicketL
     }
 }
 
-internal sealed class AddTicketLineCommandHandler(
+public class AddTicketLineCommandHandler(
     ITicketRepository ticketRepository,
     IMenuRepository menuRepository)
     : IRequestHandler<AddTicketLineCommand>

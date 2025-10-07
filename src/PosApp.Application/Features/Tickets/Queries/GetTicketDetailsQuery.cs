@@ -5,7 +5,7 @@ namespace PosApp.Application.Features.Tickets.Queries;
 
 public sealed record GetTicketDetailsQuery(Guid TicketId) : IRequest<TicketDetailsResponse?>;
 
-internal sealed class GetTicketDetailsQueryHandler(
+public class GetTicketDetailsQueryHandler(
     ITicketRepository ticketRepository,
     IMenuRepository menuRepository)
     : IRequestHandler<GetTicketDetailsQuery, TicketDetailsResponse?>

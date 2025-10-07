@@ -5,7 +5,7 @@ namespace PosApp.Application.Features.Tickets.Commands;
 
 public sealed record PayTicketCashCommand(Guid TicketId) : IRequest<TicketPaymentResponse>;
 
-internal sealed class PayTicketCashCommandHandler(ITicketRepository ticketRepository)
+public class PayTicketCashCommandHandler(ITicketRepository ticketRepository)
     : IRequestHandler<PayTicketCashCommand, TicketPaymentResponse>
 {
     public async Task<TicketPaymentResponse> Handle(PayTicketCashCommand request, CancellationToken cancellationToken)

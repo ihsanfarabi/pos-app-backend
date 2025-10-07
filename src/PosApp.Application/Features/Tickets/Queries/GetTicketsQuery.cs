@@ -21,7 +21,7 @@ public sealed class GetTicketsQueryValidator : AbstractValidator<GetTicketsQuery
     }
 }
 
-internal sealed class GetTicketsQueryHandler(ITicketRepository ticketRepository)
+public class GetTicketsQueryHandler(ITicketRepository ticketRepository)
     : IRequestHandler<GetTicketsQuery, PagedResult<TicketListItemResponse>>
 {
     private const int DefaultPageSize = 20;
