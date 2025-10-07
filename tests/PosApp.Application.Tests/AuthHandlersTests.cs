@@ -1,7 +1,6 @@
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Abstractions.Security;
 using PosApp.Application.Contracts;
-using PosApp.Application.Features.Auth;
 using PosApp.Application.Features.Auth.Commands;
 using PosApp.Domain.Entities;
 using PosApp.Domain.Exceptions;

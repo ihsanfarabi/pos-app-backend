@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.Extensions.Logging;
 using PosApp.Api.Contracts;
 using PosApp.Application.Contracts;
 using PosApp.Application.Features.Tickets;

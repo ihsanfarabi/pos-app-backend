@@ -1,7 +1,6 @@
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Common;
 using PosApp.Application.Contracts;
-using PosApp.Application.Features.Tickets;
 using PosApp.Application.Features.Tickets.Commands;
 using PosApp.Application.Features.Tickets.Queries;
 using PosApp.Domain.Entities;

@@ -2,7 +2,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.Extensions.Logging;
 using PosApp.Application.Abstractions.Security;
 using PosApp.Application.Contracts;
 using PosApp.Application.Features.Auth.Commands;
