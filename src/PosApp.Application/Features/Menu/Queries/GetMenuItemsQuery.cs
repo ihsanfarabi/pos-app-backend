@@ -1,4 +1,5 @@
 using MediatR;
+using FluentValidation;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Common;
 using PosApp.Application.Contracts;
@@ -7,6 +8,22 @@ using PosApp.Domain.Entities;
 namespace PosApp.Application.Features.Menu.Queries;
 
 public sealed record GetMenuItemsQuery(MenuQueryDto Query) : IRequest<PagedResult<MenuItemResponse>>;
+
+public sealed class GetMenuItemsQueryValidator : AbstractValidator<GetMenuItemsQuery>
+{
+    public GetMenuItemsQueryValidator()
+    {
+        RuleFor(x => x.Query.Q)
+            .MaximumLength(200).WithErrorCode("MaxLength");
+
+        RuleFor(x => x.Query.PageIndex)
+            .GreaterThanOrEqualTo(0).WithErrorCode("GreaterThanOrEqualTo");
+
+        RuleFor(x => x.Query.PageSize)
+            .GreaterThan(0).WithErrorCode("GreaterThan")
+            .LessThanOrEqualTo(100).WithErrorCode("LessThanOrEqualTo");
+    }
+}
 
 public class GetMenuItemsQueryHandler(IMenuRepository repository)
     : IRequestHandler<GetMenuItemsQuery, PagedResult<MenuItemResponse>>

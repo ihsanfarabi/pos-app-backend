@@ -1,9 +1,18 @@
 using MediatR;
+using FluentValidation;
 using PosApp.Application.Abstractions.Persistence;
 
 namespace PosApp.Application.Features.Menu.Commands;
 
 public sealed record DeleteMenuItemCommand(Guid Id) : IRequest;
+
+public sealed class DeleteMenuItemCommandValidator : AbstractValidator<DeleteMenuItemCommand>
+{
+    public DeleteMenuItemCommandValidator()
+    {
+        RuleFor(x => x.Id).NotEmpty();
+    }
+}
 
 public class DeleteMenuItemCommandHandler(IMenuRepository repository)
     : IRequestHandler<DeleteMenuItemCommand>

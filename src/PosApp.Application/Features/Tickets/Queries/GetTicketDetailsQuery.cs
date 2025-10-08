@@ -1,9 +1,18 @@
 using MediatR;
+using FluentValidation;
 using PosApp.Application.Abstractions.Persistence;
 
 namespace PosApp.Application.Features.Tickets.Queries;
 
 public sealed record GetTicketDetailsQuery(Guid TicketId) : IRequest<TicketDetailsResponse?>;
+
+public sealed class GetTicketDetailsQueryValidator : AbstractValidator<GetTicketDetailsQuery>
+{
+    public GetTicketDetailsQueryValidator()
+    {
+        RuleFor(x => x.TicketId).NotEmpty();
+    }
+}
 
 public class GetTicketDetailsQueryHandler(
     ITicketRepository ticketRepository,
