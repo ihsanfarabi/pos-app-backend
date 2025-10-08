@@ -57,6 +57,14 @@ public static class TicketEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapPost("/{id:guid}/pay/mock", PayTicketWithMockGatewayAsync)
+            .WithName("PayTicketWithMockGateway")
+            .WithSummary("Pay ticket with mock gateway")
+            .WithDescription("Simulate a card payment using a mock payment gateway.")
+            .Produces<TicketPaymentResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return group;
     }
 
@@ -148,6 +156,21 @@ public static class TicketEndpoints
         var payment = await services.Sender.Send(new PayTicketCashCommand(id), cancellationToken);
 
         services.Logger.LogInformation("Processed cash payment for ticket {TicketId}", id);
+
+        return TypedResults.Ok(payment);
+    }
+
+    private static async Task<Results<Ok<TicketPaymentResponse>, ProblemHttpResult>> PayTicketWithMockGatewayAsync(
+        Guid id,
+        PayWithGatewayDto dto,
+        [AsParameters] TicketServices services,
+        CancellationToken cancellationToken)
+    {
+        services.Logger.LogInformation("Processing mock gateway payment for ticket {TicketId}", id);
+
+        var payment = await services.Sender.Send(new PayTicketWithGatewayCommand(id, dto.ShouldSucceed), cancellationToken);
+
+        services.Logger.LogInformation("Processed mock payment for ticket {TicketId}", id);
 
         return TypedResults.Ok(payment);
     }

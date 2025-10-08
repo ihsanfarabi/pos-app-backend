@@ -11,6 +11,8 @@ using PosApp.Infrastructure.Persistence.Repositories;
 using PosApp.Infrastructure.Security;
 using PosApp.Infrastructure.Behaviors;
 using MediatR;
+using PosApp.Application.Abstractions.Payments;
+using PosApp.Infrastructure.Payments;
 
 namespace PosApp.Infrastructure;
 
@@ -39,6 +41,9 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
         services.AddScoped<IPasswordHasher, PasswordHasherAdapter>();
         services.AddScoped<ITokenService, TokenService>();
+
+        // Payment gateway (mock)
+        services.AddSingleton<IPaymentGateway, MockPaymentGateway>();
 
         // MediatR transaction behavior for commands
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));

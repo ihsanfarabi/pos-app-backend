@@ -1,4 +1,5 @@
 using PosApp.Application.Abstractions.Persistence;
+using PosApp.Application.Abstractions.Payments;
 using PosApp.Application.Common;
 using PosApp.Application.Contracts;
 using PosApp.Application.Features.Tickets.Commands;
@@ -191,5 +192,69 @@ public class TicketHandlersTests
         var result = await handler.Handle(new GetTicketDetailsQuery(Guid.NewGuid()), CancellationToken.None);
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task PayTicketWithGatewayCommandHandler_WhenSuccessful_PaysTicketAndReturnsSummary()
+    {
+        var ticketRepository = Substitute.For<ITicketRepository>();
+        var paymentGateway = Substitute.For<IPaymentGateway>();
+        var ticket = Ticket.Create();
+        ticket.AddLine(Guid.NewGuid(), 10m, 2);
+        ticketRepository
+            .GetWithLinesAsync(ticket.Id, Arg.Any<CancellationToken>())
+            .Returns(ticket);
+        paymentGateway
+            .ChargeAsync(Arg.Any<PaymentChargeRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new PaymentResult(true, "MOCK-123", null));
+
+        var handler = new PayTicketWithGatewayCommandHandler(ticketRepository, paymentGateway);
+        var command = new PayTicketWithGatewayCommand(ticket.Id, true);
+
+        var response = await handler.Handle(command, CancellationToken.None);
+
+        Assert.Equal(ticket.Id, response.Id);
+        Assert.Equal(TicketStatus.Paid.ToString(), response.Status);
+        Assert.Equal(20m, response.Total);
+        await paymentGateway.Received(1).ChargeAsync(Arg.Is<PaymentChargeRequest>(r => r.TicketId == ticket.Id && r.Amount == 20m), Arg.Any<CancellationToken>());
+        await ticketRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PayTicketWithGatewayCommandHandler_WhenPaymentFails_ThrowsException()
+    {
+        var ticketRepository = Substitute.For<ITicketRepository>();
+        var paymentGateway = Substitute.For<IPaymentGateway>();
+        var ticket = Ticket.Create();
+        ticket.AddLine(Guid.NewGuid(), 5m, 1);
+        ticketRepository
+            .GetWithLinesAsync(ticket.Id, Arg.Any<CancellationToken>())
+            .Returns(ticket);
+        paymentGateway
+            .ChargeAsync(Arg.Any<PaymentChargeRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new PaymentResult(false, null, "Insufficient funds"));
+
+        var handler = new PayTicketWithGatewayCommandHandler(ticketRepository, paymentGateway);
+        var command = new PayTicketWithGatewayCommand(ticket.Id, false);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(command, CancellationToken.None));
+
+        Assert.Equal("Insufficient funds", exception.Message);
+        await ticketRepository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PayTicketWithGatewayCommandHandler_WhenTicketMissing_Throws()
+    {
+        var ticketRepository = Substitute.For<ITicketRepository>();
+        var paymentGateway = Substitute.For<IPaymentGateway>();
+        ticketRepository
+            .GetWithLinesAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns((Ticket?)null);
+        var handler = new PayTicketWithGatewayCommandHandler(ticketRepository, paymentGateway);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => handler.Handle(new PayTicketWithGatewayCommand(Guid.NewGuid(), true), CancellationToken.None));
+
+        await paymentGateway.DidNotReceive().ChargeAsync(Arg.Any<PaymentChargeRequest>(), Arg.Any<CancellationToken>());
     }
 }
