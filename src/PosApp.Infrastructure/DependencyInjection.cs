@@ -1,5 +1,7 @@
+using System;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PosApp.Application.Abstractions.Persistence;
@@ -31,7 +33,15 @@ public static class DependencyInjection
 
         services.AddDbContext<AppDbContext>(options =>
         {
-            options.UseNpgsql(connectionString);
+            if (IsSqliteConnectionString(connectionString))
+            {
+                options.UseSqlite(connectionString);
+                options.ConfigureWarnings(builder => builder.Ignore(RelationalEventId.PendingModelChangesWarning));
+            }
+            else
+            {
+                options.UseNpgsql(connectionString);
+            }
         });
 
         services.AddScoped<IMenuRepository, MenuRepository>();
@@ -49,5 +59,12 @@ public static class DependencyInjection
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
 
         return services;
+    }
+
+    private static bool IsSqliteConnectionString(string connectionString)
+    {
+        return connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase)
+            || connectionString.StartsWith("Filename=", StringComparison.OrdinalIgnoreCase)
+            || connectionString.Contains("Mode=Memory", StringComparison.OrdinalIgnoreCase);
     }
 }

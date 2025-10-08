@@ -26,3 +26,5 @@ app.UseAuthorization();
 app.MapPosAppEndpoints();
 
 app.Run();
+
+public partial class Program;
