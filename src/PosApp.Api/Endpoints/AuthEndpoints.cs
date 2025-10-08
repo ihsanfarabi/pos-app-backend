@@ -76,7 +76,7 @@ public static class AuthEndpoints
         return TypedResults.Created($"/api/users/{id}", new UserRegisteredResponse(id, normalizedEmail));
     }
 
-    private static async Task<Results<Ok<AuthTokensResponse>, UnauthorizedHttpResult, ProblemHttpResult>> LoginAsync(
+    private static async Task<Results<Ok<AuthTokensResponse>, ProblemHttpResult>> LoginAsync(
         LoginDto dto,
         [AsParameters] AuthServices services,
         HttpContext httpContext,
@@ -88,7 +88,14 @@ public static class AuthEndpoints
         if (result is null)
         {
             services.Logger.LogWarning("Login failed for email {Email}", dto.Email);
-            return TypedResults.Unauthorized();
+            return TypedResults.Problem(
+                title: "Invalid credentials.",
+                type: "https://posapp/errors/auth/invalid-credentials",
+                statusCode: StatusCodes.Status401Unauthorized,
+                extensions: new Dictionary<string, object?>
+                {
+                    ["code"] = "Auth.InvalidCredentials"
+                });
         }
 
         IssueRefreshCookie(httpContext, result.RefreshToken);

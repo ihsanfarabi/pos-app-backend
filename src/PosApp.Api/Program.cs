@@ -14,6 +14,7 @@ await app.InitialiseDatabaseAsync();
 
 app.UsePosAppForwardedHeaders();
 app.UseExceptionHandler();
+app.UseTraceIdHeader();
 
 app.UsePosAppSwaggerUI();
 app.MapPosAppRootEndpoint();

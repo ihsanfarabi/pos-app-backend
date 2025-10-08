@@ -10,22 +10,23 @@ public class RegisterDtoValidator : AbstractValidator<RegisterDto>
     {
         RuleFor(x => x.Email)
             .NotEmpty()
-            .EmailAddress()
+            .EmailAddress().WithErrorCode("Email")
             .MaximumLength(320)
             .MustAsync(async (email, cancellation) =>
             {
                 var normalized = email.Trim().ToLowerInvariant();
                 return !await userRepository.EmailExistsAsync(normalized, cancellation);
             })
-            .WithMessage("Email already registered.");
+            .WithMessage("Email already registered.").WithErrorCode("EmailAlreadyRegistered");
 
         RuleFor(x => x.Password)
-            .NotEmpty()
-            .MinimumLength(8);
+            .NotEmpty().WithErrorCode("NotEmpty")
+            .MinimumLength(8).WithErrorCode("MinLength");
 
         RuleFor(x => x.Role)
             .Must(role => string.IsNullOrWhiteSpace(role) || !string.IsNullOrWhiteSpace(role.Trim()))
-            .WithMessage("Role must contain non-whitespace characters when provided.");
+            .WithMessage("Role must contain non-whitespace characters when provided.")
+            .WithErrorCode("RoleInvalid");
     }
 }
 

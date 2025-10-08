@@ -53,6 +53,25 @@ public static class WebApplicationExtensions
         return app;
     }
 
+        public static WebApplication UseTraceIdHeader(this WebApplication app)
+        {
+            app.Use(async (context, next) =>
+            {
+                context.Response.OnStarting(() =>
+                {
+                    var traceId = context.TraceIdentifier;
+                    if (!string.IsNullOrWhiteSpace(traceId))
+                    {
+                        context.Response.Headers["x-trace-id"] = traceId;
+                    }
+                    return Task.CompletedTask;
+                });
+                await next();
+            });
+
+            return app;
+        }
+
     public static WebApplication MapPosAppEndpoints(this WebApplication app)
     {
         app.MapMenuEndpoints();

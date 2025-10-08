@@ -27,12 +27,24 @@ public static class ServiceCollectionExtensions
 
                 context.ProblemDetails.Detail ??= context.Exception.Message;
 
-                switch (context.Exception)
+                    switch (context.Exception)
                 {
+                        case ValidationProblemException vpex:
+                            context.ProblemDetails.Status ??= StatusCodes.Status400BadRequest;
+                            context.ProblemDetails.Title ??= "One or more validation errors occurred.";
+                            context.ProblemDetails.Type ??= "https://httpstatuses.com/400";
+                            context.ProblemDetails.Extensions["code"] = "ValidationFailed";
+                            var errors = new Dictionary<string, object>();
+                            foreach (var kvp in vpex.Errors)
+                            {
+                                errors[kvp.Key] = kvp.Value.Select(e => new { code = e.Code, message = e.Message }).ToArray();
+                            }
+                            context.ProblemDetails.Extensions["errors"] = errors;
+                            break;
                     case DomainException:
                         context.ProblemDetails.Status ??= StatusCodes.Status400BadRequest;
-                        context.ProblemDetails.Title ??= "Bad Request";
-                        context.ProblemDetails.Type ??= "https://httpstatuses.com/400";
+                            context.ProblemDetails.Title ??= "Bad Request";
+                            context.ProblemDetails.Type ??= "https://httpstatuses.com/400";
                         break;
                     case KeyNotFoundException:
                         context.ProblemDetails.Status ??= StatusCodes.Status404NotFound;
