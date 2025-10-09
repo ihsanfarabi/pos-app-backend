@@ -42,7 +42,6 @@ public static class ExceptionHandlingExtensions
                 var response = context.Response;
                 response.Clear();
                 response.StatusCode = StatusCodes.Status500InternalServerError;
-                response.ContentType = "application/problem+json";
 
                 context.Items["PosApp:ExposeExceptionDetails"] = environment.IsDevelopment();
 
