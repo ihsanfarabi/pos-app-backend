@@ -21,6 +21,7 @@ app.MapPosAppRootEndpoint();
 
 app.UseCors();
 app.UseAuthentication();
+app.UseIdempotencyContext();
 app.UseAuthorization();
 
 app.MapPosAppEndpoints();

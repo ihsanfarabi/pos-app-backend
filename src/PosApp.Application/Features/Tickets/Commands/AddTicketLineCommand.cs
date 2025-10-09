@@ -1,12 +1,13 @@
-using MediatR;
 using FluentValidation;
+using MediatR;
+using PosApp.Application.Abstractions.Idempotency;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Contracts;
 using PosApp.Domain.Exceptions;
 
 namespace PosApp.Application.Features.Tickets.Commands;
 
-public sealed record AddTicketLineCommand(Guid TicketId, AddLineDto Dto) : IRequest;
+public sealed record AddTicketLineCommand(Guid TicketId, AddLineDto Dto) : IIdempotentRequest<Unit>;
 
 public sealed class AddTicketLineCommandValidator : AbstractValidator<AddTicketLineCommand>
 {
@@ -22,9 +23,9 @@ public sealed class AddTicketLineCommandValidator : AbstractValidator<AddTicketL
 public class AddTicketLineCommandHandler(
     ITicketRepository ticketRepository,
     IMenuRepository menuRepository)
-    : IRequestHandler<AddTicketLineCommand>
+    : IRequestHandler<AddTicketLineCommand, Unit>
 {
-    public async Task Handle(AddTicketLineCommand request, CancellationToken cancellationToken)
+    public async Task<Unit> Handle(AddTicketLineCommand request, CancellationToken cancellationToken)
     {
         var ticket = await ticketRepository.GetWithLinesAsync(request.TicketId, cancellationToken);
         if (ticket is null)
@@ -40,5 +41,7 @@ public class AddTicketLineCommandHandler(
 
         ticket.AddLine(menuItem.Id, menuItem.Price, request.Dto.Qty);
         await ticketRepository.SaveChangesAsync(cancellationToken);
+
+        return Unit.Value;
     }
 }

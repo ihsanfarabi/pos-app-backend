@@ -1,11 +1,12 @@
 using FluentValidation;
 using MediatR;
+using PosApp.Application.Abstractions.Idempotency;
 using PosApp.Application.Abstractions.Payments;
 using PosApp.Application.Abstractions.Persistence;
 
 namespace PosApp.Application.Features.Tickets.Commands;
 
-public sealed record PayTicketWithGatewayCommand(Guid TicketId, bool ShouldSucceed) : IRequest<TicketPaymentResponse>;
+public sealed record PayTicketWithGatewayCommand(Guid TicketId, bool ShouldSucceed) : IIdempotentRequest<TicketPaymentResponse>;
 
 public sealed class PayTicketWithGatewayCommandValidator : AbstractValidator<PayTicketWithGatewayCommand>
 {
@@ -41,5 +42,4 @@ public sealed class PayTicketWithGatewayCommandHandler(
         return new TicketPaymentResponse(ticket.Id, ticket.Status.ToString(), amount);
     }
 }
-
 

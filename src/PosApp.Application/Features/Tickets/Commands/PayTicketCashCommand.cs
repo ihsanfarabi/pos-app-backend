@@ -1,9 +1,10 @@
 using MediatR;
+using PosApp.Application.Abstractions.Idempotency;
 using PosApp.Application.Abstractions.Persistence;
 
 namespace PosApp.Application.Features.Tickets.Commands;
 
-public sealed record PayTicketCashCommand(Guid TicketId) : IRequest<TicketPaymentResponse>;
+public sealed record PayTicketCashCommand(Guid TicketId) : IIdempotentRequest<TicketPaymentResponse>;
 
 public class PayTicketCashCommandHandler(ITicketRepository ticketRepository)
     : IRequestHandler<PayTicketCashCommand, TicketPaymentResponse>

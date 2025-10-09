@@ -1,10 +1,11 @@
 using MediatR;
+using PosApp.Application.Abstractions.Idempotency;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Domain.Entities;
 
 namespace PosApp.Application.Features.Tickets.Commands;
 
-public sealed record CreateTicketCommand() : IRequest<Guid>;
+public sealed record CreateTicketCommand() : IIdempotentRequest<Guid>;
 
 public class CreateTicketCommandHandler(ITicketRepository ticketRepository)
     : IRequestHandler<CreateTicketCommand, Guid>
