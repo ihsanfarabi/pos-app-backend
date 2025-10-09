@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.Logging;
-using PosApp.Domain.Exceptions;
 
 namespace PosApp.Api.Extensions;
 
@@ -42,7 +41,7 @@ public static class ExceptionHandlingExtensions
 
                 var response = context.Response;
                 response.Clear();
-                response.StatusCode = MapStatusCode(exception);
+                response.StatusCode = StatusCodes.Status500InternalServerError;
                 response.ContentType = "application/problem+json";
 
                 context.Items["PosApp:ExposeExceptionDetails"] = environment.IsDevelopment();
@@ -65,14 +64,5 @@ public static class ExceptionHandlingExtensions
 
         return app;
 
-        static int MapStatusCode(Exception? exception)
-        {
-            return exception switch
-            {
-                DomainException => StatusCodes.Status400BadRequest,
-                KeyNotFoundException => StatusCodes.Status404NotFound,
-                _ => StatusCodes.Status500InternalServerError
-            };
-        }
     }
 }
