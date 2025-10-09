@@ -38,7 +38,7 @@ public static class ServiceCollectionExtensions
                 switch (exception)
                 {
                     case ValidationProblemException vpex:
-                        context.ProblemDetails.Status ??= StatusCodes.Status400BadRequest;
+                        context.ProblemDetails.Status = StatusCodes.Status400BadRequest;
                         context.ProblemDetails.Title ??= "One or more validation errors occurred.";
                         context.ProblemDetails.Type ??= "https://httpstatuses.com/400";
                         context.ProblemDetails.Extensions["code"] = "ValidationFailed";
@@ -52,19 +52,19 @@ public static class ServiceCollectionExtensions
                         context.ProblemDetails.Detail ??= exposeDetails ? exception.Message : "Validation failed.";
                         break;
                     case DomainException domainException:
-                        context.ProblemDetails.Status ??= StatusCodes.Status400BadRequest;
+                        context.ProblemDetails.Status = StatusCodes.Status400BadRequest;
                         context.ProblemDetails.Title ??= "Bad Request";
                         context.ProblemDetails.Type ??= "https://httpstatuses.com/400";
                         context.ProblemDetails.Detail ??= domainException.Message;
                         break;
                     case KeyNotFoundException:
-                        context.ProblemDetails.Status ??= StatusCodes.Status404NotFound;
+                        context.ProblemDetails.Status = StatusCodes.Status404NotFound;
                         context.ProblemDetails.Title ??= "Not Found";
                         context.ProblemDetails.Type ??= "https://httpstatuses.com/404";
                         context.ProblemDetails.Detail ??= exposeDetails ? exception.Message : "The requested resource was not found.";
                         break;
                     default:
-                        context.ProblemDetails.Status ??= StatusCodes.Status500InternalServerError;
+                        context.ProblemDetails.Status = StatusCodes.Status500InternalServerError;
                         context.ProblemDetails.Title ??= "Internal Server Error";
                         context.ProblemDetails.Type ??= "https://httpstatuses.com/500";
                         context.ProblemDetails.Detail ??= exposeDetails ? exception.Message : "An unexpected error occurred.";
