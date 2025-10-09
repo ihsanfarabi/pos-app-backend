@@ -1,0 +1,13 @@
+global using System.Text.Json;
+global using System.Security.Cryptography;
+global using Microsoft.AspNetCore.Http.Json;
+global using Microsoft.Extensions.Logging;
+global using Microsoft.Extensions.Logging.Abstractions;
+global using Microsoft.Extensions.Options;
+global using MediatR;
+global using NSubstitute;
+global using PosApp.Application.Abstractions.Idempotency;
+global using PosApp.Domain.Exceptions;
+global using PosApp.Infrastructure.Behaviors;
+global using PosApp.Infrastructure.Idempotency;
+global using Xunit;

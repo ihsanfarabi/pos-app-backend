@@ -13,7 +13,7 @@ var app = builder.Build();
 await app.InitialiseDatabaseAsync();
 
 app.UsePosAppForwardedHeaders();
-app.UseExceptionHandler();
+app.UsePosAppExceptionHandler();
 app.UseTraceIdHeader();
 
 app.UsePosAppSwaggerUI();
