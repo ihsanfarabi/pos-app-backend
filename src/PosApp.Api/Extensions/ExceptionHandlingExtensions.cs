@@ -12,6 +12,7 @@ public static class ExceptionHandlingExtensions
     public static WebApplication UsePosAppExceptionHandler(this WebApplication app)
     {
         var logger = app.Logger;
+        var environment = app.Environment;
 
         app.UseExceptionHandler(errorApp =>
         {
@@ -25,7 +26,18 @@ public static class ExceptionHandlingExtensions
                 var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
                 if (exception is not null)
                 {
-                    logger.LogError(exception, "Unhandled exception {TraceId}", context.TraceIdentifier);
+                    logger.LogError(
+                        exception,
+                        "Unhandled exception processing {Method} {Path}. TraceId {TraceId}",
+                        context.Request.Method,
+                        context.Request.Path,
+                        context.TraceIdentifier);
+                }
+                else
+                {
+                    logger.LogError(
+                        "Unhandled error pipeline invoked without exception. TraceId {TraceId}",
+                        context.TraceIdentifier);
                 }
 
                 var response = context.Response;
@@ -33,7 +45,14 @@ public static class ExceptionHandlingExtensions
                 response.StatusCode = MapStatusCode(exception);
                 response.ContentType = "application/problem+json";
 
-                var problemDetailsService = context.RequestServices.GetRequiredService<IProblemDetailsService>();
+                context.Items["PosApp:ExposeExceptionDetails"] = environment.IsDevelopment();
+
+                var problemDetailsService = context.RequestServices.GetService<IProblemDetailsService>();
+                if (problemDetailsService is null)
+                {
+                    throw new InvalidOperationException("IProblemDetailsService is not registered. Ensure AddProblemDetails() is configured.");
+                }
+
                 var problemDetailsContext = new ProblemDetailsContext
                 {
                     HttpContext = context,

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -18,43 +20,54 @@ public static class ServiceCollectionExtensions
         {
             options.CustomizeProblemDetails = context =>
             {
-                context.ProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
+                var httpContext = context.HttpContext;
+                context.ProblemDetails.Extensions["traceId"] = httpContext.TraceIdentifier;
+                var exposeDetails = httpContext.Items.TryGetValue("PosApp:ExposeExceptionDetails", out var exposeObj)
+                                     && exposeObj is true;
 
-                if (context.Exception is null)
+                var exception = context.Exception;
+                if (exception is null)
                 {
+                    if (!exposeDetails)
+                    {
+                        context.ProblemDetails.Detail ??= "An unexpected error occurred.";
+                    }
                     return;
                 }
 
-                context.ProblemDetails.Detail ??= context.Exception.Message;
-
-                    switch (context.Exception)
+                switch (exception)
                 {
-                        case ValidationProblemException vpex:
-                            context.ProblemDetails.Status ??= StatusCodes.Status400BadRequest;
-                            context.ProblemDetails.Title ??= "One or more validation errors occurred.";
-                            context.ProblemDetails.Type ??= "https://httpstatuses.com/400";
-                            context.ProblemDetails.Extensions["code"] = "ValidationFailed";
-                            var errors = new Dictionary<string, object>();
-                            foreach (var kvp in vpex.Errors)
-                            {
-                                errors[kvp.Key] = kvp.Value.Select(e => new { code = e.Code, message = e.Message }).ToArray();
-                            }
-                            context.ProblemDetails.Extensions["errors"] = errors;
-                            break;
-                    case DomainException:
+                    case ValidationProblemException vpex:
                         context.ProblemDetails.Status ??= StatusCodes.Status400BadRequest;
-                            context.ProblemDetails.Title ??= "Bad Request";
-                            context.ProblemDetails.Type ??= "https://httpstatuses.com/400";
+                        context.ProblemDetails.Title ??= "One or more validation errors occurred.";
+                        context.ProblemDetails.Type ??= "https://httpstatuses.com/400";
+                        context.ProblemDetails.Extensions["code"] = "ValidationFailed";
+
+                        var errors = new Dictionary<string, object>();
+                        foreach (var kvp in vpex.Errors)
+                        {
+                            errors[kvp.Key] = kvp.Value.Select(e => new { code = e.Code, message = e.Message }).ToArray();
+                        }
+                        context.ProblemDetails.Extensions["errors"] = errors;
+                        context.ProblemDetails.Detail ??= exposeDetails ? exception.Message : "Validation failed.";
+                        break;
+                    case DomainException domainException:
+                        context.ProblemDetails.Status ??= StatusCodes.Status400BadRequest;
+                        context.ProblemDetails.Title ??= "Bad Request";
+                        context.ProblemDetails.Type ??= "https://httpstatuses.com/400";
+                        context.ProblemDetails.Detail ??= domainException.Message;
                         break;
                     case KeyNotFoundException:
                         context.ProblemDetails.Status ??= StatusCodes.Status404NotFound;
                         context.ProblemDetails.Title ??= "Not Found";
                         context.ProblemDetails.Type ??= "https://httpstatuses.com/404";
+                        context.ProblemDetails.Detail ??= exposeDetails ? exception.Message : "The requested resource was not found.";
                         break;
                     default:
                         context.ProblemDetails.Status ??= StatusCodes.Status500InternalServerError;
                         context.ProblemDetails.Title ??= "Internal Server Error";
                         context.ProblemDetails.Type ??= "https://httpstatuses.com/500";
+                        context.ProblemDetails.Detail ??= exposeDetails ? exception.Message : "An unexpected error occurred.";
                         break;
                 }
             };
