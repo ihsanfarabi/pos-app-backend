@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PosApp.Domain.Entities;
+using PosApp.Infrastructure.Idempotency;
 
 namespace PosApp.Infrastructure.Persistence;
 
@@ -9,6 +10,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Ticket> Tickets => Set<Ticket>();
     public DbSet<TicketLine> TicketLines => Set<TicketLine>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -51,6 +53,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => x.Email).IsUnique();
             e.Property(x => x.PasswordHash).IsRequired();
             e.Property(x => x.Role).HasMaxLength(20).HasDefaultValue("user");
+        });
+
+        b.Entity<IdempotencyRecord>(e =>
+        {
+            e.Property(x => x.RequestName).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Key).HasMaxLength(200).IsRequired();
+            e.Property(x => x.RequestHash).HasMaxLength(128).IsRequired();
+            e.Property(x => x.ResponseContent).HasColumnType("text");
+            e.HasIndex(x => new { x.UserId, x.RequestName, x.Key }).IsUnique();
         });
     }
 }

@@ -4,14 +4,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using PosApp.Application.Abstractions.Idempotency;
 using PosApp.Application.Abstractions.Persistence;
 using PosApp.Application.Abstractions.Security;
 using PosApp.Domain.Entities;
+using PosApp.Infrastructure.Behaviors;
+using PosApp.Infrastructure.Idempotency;
 using PosApp.Infrastructure.Options;
 using PosApp.Infrastructure.Persistence;
 using PosApp.Infrastructure.Persistence.Repositories;
 using PosApp.Infrastructure.Security;
-using PosApp.Infrastructure.Behaviors;
 using MediatR;
 using PosApp.Application.Abstractions.Payments;
 using PosApp.Infrastructure.Payments;
@@ -55,8 +57,12 @@ public static class DependencyInjection
         // Payment gateway (mock)
         services.AddSingleton<IPaymentGateway, MockPaymentGateway>();
 
-        // MediatR transaction behavior for commands
+        services.AddScoped<IIdempotencyContext, IdempotencyContext>();
+        services.AddScoped<IRequestManager, RequestManager>();
+
+        // MediatR behaviors for commands
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(IdempotencyBehavior<,>));
 
         return services;
     }
