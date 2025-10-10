@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using PosApp.Api.Endpoints;
 using PosApp.Infrastructure.Persistence;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 
 namespace PosApp.Api.Extensions;
 
@@ -19,7 +21,7 @@ public static class WebApplicationExtensions
     {
         app.UseForwardedHeaders(new ForwardedHeadersOptions
         {
-            ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost,
+            ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost | ForwardedHeaders.XForwardedFor,
             KnownNetworks = { },
             KnownProxies = { }
         });
@@ -77,6 +79,17 @@ public static class WebApplicationExtensions
         app.MapMenuEndpoints();
         app.MapTicketEndpoints();
         app.MapAuthEndpoints();
+        return app;
+    }
+
+    public static WebApplication MapPosAppHealthChecks(this WebApplication app)
+    {
+        // Liveness: just confirm the app is running
+        app.MapHealthChecks("/health/live");
+
+        // Readiness: include DB check
+        app.MapHealthChecks("/health/ready");
+
         return app;
     }
 }

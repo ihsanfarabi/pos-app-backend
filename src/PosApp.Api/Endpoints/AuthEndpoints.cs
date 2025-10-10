@@ -19,7 +19,8 @@ public static class AuthEndpoints
         var group = versionedApi
             .MapGroup("/api/auth")
             .HasApiVersion(1, 0)
-            .WithTags("Auth");
+            .WithTags("Auth")
+            .RequireRateLimiting("auth");
 
         group.MapPost("/register", RegisterAsync)
             .WithName("RegisterUser")

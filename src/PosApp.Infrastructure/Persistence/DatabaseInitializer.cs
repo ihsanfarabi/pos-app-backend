@@ -12,10 +12,18 @@ public static class DatabaseInitializer
     {
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await context.Database.MigrateAsync(cancellationToken);
+        var applyMigrations = configuration.GetValue("Database:ApplyMigrations", true);
+        if (applyMigrations)
+        {
+            await context.Database.MigrateAsync(cancellationToken);
+        }
 
-        await SeedMenuAsync(context, cancellationToken);
-        await SeedAdminUserAsync(scope.ServiceProvider, configuration, cancellationToken);
+        var seedEnabled = configuration.GetValue("Database:Seed", false);
+        if (seedEnabled)
+        {
+            await SeedMenuAsync(context, cancellationToken);
+            await SeedAdminUserAsync(scope.ServiceProvider, configuration, cancellationToken);
+        }
     }
 
     private static async Task SeedMenuAsync(AppDbContext context, CancellationToken cancellationToken)

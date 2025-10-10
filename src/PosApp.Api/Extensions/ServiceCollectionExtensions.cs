@@ -92,16 +92,24 @@ public static class ServiceCollectionExtensions
     {
         var allowedOriginsCsv = configuration["AllowedOrigins"];
         var allowedOrigins = string.IsNullOrWhiteSpace(allowedOriginsCsv)
-            ? new[] { "http://localhost:3000" }
+            ? Array.Empty<string>()
             : allowedOriginsCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         services.AddCors(options =>
         {
             options.AddDefaultPolicy(policy =>
+            {
+                if (allowedOrigins.Length == 0)
+                {
+                    // No default CORS policy when no origins are configured
+                    return;
+                }
+
                 policy.WithOrigins(allowedOrigins)
                       .AllowAnyHeader()
                       .AllowAnyMethod()
-                      .AllowCredentials());
+                      .AllowCredentials();
+            });
         });
 
         return services;

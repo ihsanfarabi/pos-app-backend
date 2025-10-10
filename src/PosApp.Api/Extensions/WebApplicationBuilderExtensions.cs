@@ -1,8 +1,10 @@
 using System;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
 using PosApp.Application;
 using PosApp.Infrastructure;
+using System.Threading.RateLimiting;
 using Serilog;
 
 namespace PosApp.Api.Extensions;
@@ -75,6 +77,37 @@ public static class WebApplicationBuilderExtensions
                     },
                     Array.Empty<string>()
                 }
+            });
+        });
+
+        return builder;
+    }
+
+    public static WebApplicationBuilder AddPosAppHealthChecks(this WebApplicationBuilder builder)
+    {
+        // Add default health checks; readiness will also perform a direct DB connectivity check
+        builder.Services.AddHealthChecks();
+        return builder;
+    }
+
+    public static WebApplicationBuilder AddPosAppRateLimiting(this WebApplicationBuilder builder)
+    {
+        builder.Services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = 429;
+
+            options.AddPolicy("auth", httpContext =>
+            {
+                var partitionKey = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey,
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromSeconds(30),
+                        QueueLimit = 0,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                    });
             });
         });
 
