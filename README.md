@@ -7,7 +7,7 @@ Production-ready minimal API for a Point-of-Sale system showcasing Clean Archite
 - **Authentication**: JWT access tokens + HttpOnly refresh token cookie
 - **Authorization**: Role-based policies (admin-only menu write operations)
 - **Domain**: Tickets, lines, menu items; payment flows (cash + mock gateway)
-- **Architecture**: Clean layering (`Domain`, `Application`, `Infrastructure`, `Api`) with pipeline behaviors (validation, logging, transactions)
+- **Architecture**: Clean layering (`Domain`, `Application`, `Infrastructure`, `Api`) with pipeline behaviors (validation, logging, transactions, idempotency)
 - **Observability**: Serilog console logs, consistent ProblemDetails, response `x-trace-id`
 - **Developer Experience**: API versioning, Swagger UI in Development, Docker-first setup
 
@@ -137,6 +137,60 @@ curl -X PUT http://localhost:5001/api/menu/{id} \
 curl -X DELETE http://localhost:5001/api/menu/{id} \
   -H "Authorization: Bearer $TOKEN" -i
 ```
+
+## Idempotency
+
+Write operations that implement `IIdempotentRequest<T>` are protected by request idempotency.
+
+- **Header**: send `Idempotency-Key: <unique-string>` on write requests.
+- **Scope**: keyed per request type and user. The same key can be reused for different request types without collision.
+- **Behavior**:
+  - First request stores a pending record, processes normally, then persists the response payload.
+  - A subsequent identical request (same key, same user, same request type, same body) returns the original response with the original status code.
+  - If the same key is reused with a different payload, the API returns `400 Bad Request` with a ProblemDetails message: "Idempotency key conflict: payload does not match previous request.".
+  - If the first request is still being processed, a retry with the same key may return a ProblemDetails message: "Request with this idempotency key is currently being processed. Please retry later.".
+- **Persistence**: records are stored in the database (`IdempotencyRecords`) with request hash and serialized response.
+- **Enabled endpoints** (via Application commands implementing `IIdempotentRequest<T>`):
+  - Create ticket
+  - Add ticket line
+  - Pay ticket (cash)
+  - Pay ticket via mock gateway
+
+Examples (replace tokens/IDs as needed):
+
+```bash
+# Create ticket (idempotent)
+KEY=$(uuidgen)
+curl -X POST http://localhost:5001/api/tickets \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Idempotency-Key: $KEY" -i
+
+# Add line to ticket (idempotent)
+LINE_KEY=$(uuidgen)
+curl -X POST http://localhost:5001/api/tickets/$TICKET_ID/lines \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $LINE_KEY" \
+  -d '{"menuItemId":"{menu-item-guid}","qty":2}' -i
+
+# Pay by cash (idempotent)
+PAY_KEY=$(uuidgen)
+curl -X POST http://localhost:5001/api/tickets/$TICKET_ID/pay/cash \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Idempotency-Key: $PAY_KEY" -i
+
+# Pay via mock gateway (idempotent)
+GW_KEY=$(uuidgen)
+curl -X POST http://localhost:5001/api/tickets/$TICKET_ID/pay/mock \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $GW_KEY" \
+  -d '{"shouldSucceed":true}' -i
+```
+
+Notes:
+- Use a fresh `Idempotency-Key` for each logical operation initiated by the client.
+- Keys are user-scoped; if unauthenticated, the key is treated without a user scope.
 
 ### Tickets
 
